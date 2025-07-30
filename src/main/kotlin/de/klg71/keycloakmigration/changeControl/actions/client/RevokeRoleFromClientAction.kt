@@ -20,7 +20,6 @@ class RevokeRoleFromClientAction(
         if (!client.existsClient(clientId, realm()))
             throw MigrationException("Client with name: $clientId does not exist in realm: ${realm()}!")
 
-
         val foundRole = findRole()
         val roleListItem = RoleListItem(
             id = foundRole.id,
@@ -30,9 +29,9 @@ class RevokeRoleFromClientAction(
             clientRole = foundRole.clientRole,
             containerId = foundRole.containerId
         )
+        val serviceAccountUser = client.clientServiceAccount(client.clientUUID(clientId, realm()), realm())
 
         if (roleClientId != null) {
-            val serviceAccountUser = client.clientServiceAccount(client.clientUUID(clientId, realm()), realm())
 
             val clientOfRoleUUID = client.clientUUID(roleClientId, realm())
 
@@ -56,17 +55,12 @@ class RevokeRoleFromClientAction(
             if (!client.existsRole(role, realm()))
                 throw MigrationException("Realm role with name: $role does not exist in realm: ${realm()}!")
 
-            val realmRoleMappings =
-                client.realmRoleScopeMappingsOfClient(realm(), client.clientUUID(clientId, realm()))
-
-            if (!realmRoleMappings.map { it.name }.contains(role))
-                throw MigrationException("Client with name: $clientId in realm: ${realm()} does not have realm role: $role in its scope mappings!")
-
-            client.deleteRealmRoleScopeMappingOfClient(
-                listOf(roleListItem),
+            // TODO: Discuss: findRealmRolesAssignedToClient does not exist - meaning we can't validate that a client has the role before attempting to remove it
+            client.revokeRealmRoles(
+                listOf(roleListItem.toAssignRole()),
                 realm(),
-                client.clientUUID(clientId, realm())
-            )
+                serviceAccountUser.id)
+
         }
     }
 
@@ -91,8 +85,8 @@ class RevokeRoleFromClientAction(
                 client.clientUUID(roleClientId, realm())
             )
         } else {
-            client.addRealmRoleScopeMappingToClient(
-                listOf(roleListItem),
+            client.assignRealmRoles(
+                listOf(roleListItem.toAssignRole()),
                 realm(),
                 client.clientUUID(clientId, realm())
             )
