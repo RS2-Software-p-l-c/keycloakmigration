@@ -37,3 +37,29 @@ Adds a new organization to an existing realm
 ##### Parameters
 - name: String,
 - verified: Boolean, optional, default=false
+
+## updateOrganization
+Updates an existing organization
+
+### Parameters
+- realm: String, optional
+- name: String, not optional,
+- redirectUrl: String, optional,
+- domains: List<OrganizationDomain>, optional,
+- attributes: Map with Layout Map<String, List< String >>, default=empty
+
+### Example
+```yaml
+    id: update-organization
+    author: david.briffa
+    realm: test
+    changes:
+    - updateOrganization:
+        name: test-organization
+        redirectUrl: http://redirectUrl.com
+        domains:
+          - name: test.com
+        attributes:
+          custom-attribute: 
+            - updatedValue
+```
