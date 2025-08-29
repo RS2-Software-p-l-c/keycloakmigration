@@ -24,8 +24,10 @@ class UpdateOrganizationAction(
         if (!client.realmExistsById(realm()))
             throw MigrationException("Realm with id: ${realm()} does not exist!")
 
-        if (domains?.size == 0)
-            throw MigrationException("At least one domain needs to be provided!")
+        domains?.let {
+            if (it.isEmpty())
+                throw MigrationException("At least one domain needs to be provided!")
+        }
 
         original = client.organizationByAlias(alias, realm())
 
@@ -33,7 +35,7 @@ class UpdateOrganizationAction(
             alias,
             name = name ?: original.name,
             redirectUrl = redirectUrl ?: original.redirectUrl,
-            domains = if (domains.isNullOrEmpty()) original.domains else domains, //TODO
+            domains = domains ?: original.domains, //TODO
             attributes = attributes ?: original.attributes
         )
 

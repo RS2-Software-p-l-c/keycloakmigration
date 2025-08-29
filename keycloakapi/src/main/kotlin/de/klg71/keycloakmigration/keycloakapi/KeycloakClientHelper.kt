@@ -294,7 +294,7 @@ fun KeycloakClient.organizationByAlias(alias: String, realm: String): Organizati
 
 fun KeycloakClient.editOrganization(realm: String, id: UUID, organization: UpdateOrganization) {
     updateOrganization(realm, id, organization).run {
-        if (status() < 200 || status() >= 300) {
+        if (!isSuccessful()) {
             val responseText = body().asReader(StandardCharsets.UTF_8).use { it.readText() }
             throw KeycloakApiException("Failed to update Organisation: $responseText")
         }

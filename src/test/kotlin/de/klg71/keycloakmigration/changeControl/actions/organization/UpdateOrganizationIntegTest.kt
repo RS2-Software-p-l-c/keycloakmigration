@@ -41,7 +41,7 @@ class UpdateOrganizationIntegTest : AbstractIntegrationTest() {
         ).executeIt()
 
         val expected = Organization(
-            id = UUID.fromString("b3afcd42-4bf9-4ae5-a5e9-a07eec0918fd"),
+            id = UUID.randomUUID(),
             name = "updated-name",
             alias = "alias",
             redirectUrl = "http://updatedRedirectUrl.com",
@@ -89,7 +89,7 @@ class UpdateOrganizationIntegTest : AbstractIntegrationTest() {
         updateOrganizationAction.undoIt()
 
         val expected = Organization(
-            id = UUID.fromString("b3afcd42-4bf9-4ae5-a5e9-a07eec0918fd"),
+            id = UUID.randomUUID(),
             name = originalName,
             alias = alias,
             redirectUrl = originalRedirectUrl,
