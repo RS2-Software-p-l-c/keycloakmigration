@@ -39,11 +39,12 @@ Adds a new organization to an existing realm
 - verified: Boolean, optional, default=false
 
 ## updateOrganization
-Updates an existing organization
+Updates an existing organization. The alias may not be updated.
 
 ### Parameters
-- realm: String, optional
-- name: String, not optional,
+- realm: String, optional,
+- alias: String, not optional,
+- name: String, optional,
 - redirectUrl: String, optional,
 - domains: List<OrganizationDomain>, optional,
 - attributes: Map with Layout Map<String, List< String >>, default=empty
@@ -55,11 +56,12 @@ Updates an existing organization
     realm: test
     changes:
     - updateOrganization:
-        name: test-organization
+        alias: organization-alias
+        name: updated-name
         redirectUrl: http://redirectUrl.com
         domains:
-          - name: test.com
+          - name: updated-domain.com
         attributes:
           custom-attribute: 
-            - updatedValue
+            - updated-value
 ```
