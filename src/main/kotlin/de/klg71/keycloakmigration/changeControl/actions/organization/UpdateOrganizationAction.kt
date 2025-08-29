@@ -15,7 +15,7 @@ class UpdateOrganizationAction(
     private val name: String?,
     private val redirectUrl: String? = null,
     private var domains: Set<OrganizationDomain>?,
-    private val attributes: Map<String, List<String>>? = mapOf()
+    private val attributes: Map<String, List<String>>?
 ) : Action(realm) {
 
     private lateinit var original: Organization
@@ -24,13 +24,16 @@ class UpdateOrganizationAction(
         if (!client.realmExistsById(realm()))
             throw MigrationException("Realm with id: ${realm()} does not exist!")
 
+        if (domains?.size == 0)
+            throw MigrationException("At least one domain needs to be provided!")
+
         original = client.organizationByAlias(alias, realm())
 
         val updatedOrganization = UpdateOrganization(
-            alias = original.alias,
+            alias,
             name = name ?: original.name,
             redirectUrl = redirectUrl ?: original.redirectUrl,
-            domains = if (domains.isNullOrEmpty()) original.domains else domains,
+            domains = if (domains.isNullOrEmpty()) original.domains else domains, //TODO
             attributes = attributes ?: original.attributes
         )
 
@@ -39,8 +42,8 @@ class UpdateOrganizationAction(
 
     override fun undo() {
         val originalOrganization = UpdateOrganization(
+            alias,
             name = original.name,
-            alias = original.alias,
             redirectUrl = original.redirectUrl,
             domains = original.domains,
             attributes = original.attributes

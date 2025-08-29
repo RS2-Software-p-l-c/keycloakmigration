@@ -53,7 +53,7 @@ class UpdateOrganizationIntegTest : AbstractIntegrationTest() {
 
         assertThat(expected)
             .usingRecursiveComparison()
-            .ignoringFields("id", "creationTimestamp")
+            .ignoringFields("id")
             .isEqualTo(actual)
     }
 
@@ -88,10 +88,19 @@ class UpdateOrganizationIntegTest : AbstractIntegrationTest() {
 
         updateOrganizationAction.undoIt()
 
-        val revertedOrganization = client.organizationByAlias(alias, testRealm)
+        val expected = Organization(
+            id = UUID.fromString("b3afcd42-4bf9-4ae5-a5e9-a07eec0918fd"),
+            name = originalName,
+            alias = alias,
+            redirectUrl = originalRedirectUrl,
+            domains = originalDomains,
+            attributes = originalAttributes
+        )
 
-        assertThat(revertedOrganization.name).isEqualTo(originalName)
-        assertThat(revertedOrganization.redirectUrl).isEqualTo(originalRedirectUrl)
-        assertThat(revertedOrganization.domains).isEqualTo(originalDomains)
-        assertThat(revertedOrganization.attributes).isEqualTo(originalAttributes)
+        val actual = client.organizationByAlias(alias, testRealm)
+
+        assertThat(expected)
+            .usingRecursiveComparison()
+            .ignoringFields("id")
+            .isEqualTo(actual)
     }}

@@ -65,3 +65,8 @@ Updates an existing organization. The alias may not be updated.
           custom-attribute: 
             - updated-value
 ```
+
+#### OrganizationDomain
+##### Parameters
+- name: String,
+- verified: Boolean, optional, default=false
