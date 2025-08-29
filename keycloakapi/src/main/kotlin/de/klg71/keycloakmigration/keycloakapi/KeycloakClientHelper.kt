@@ -282,8 +282,18 @@ fun KeycloakClient.addOrganization(realm: String, organization: AddOrganization)
     }
 }
 
+fun KeycloakClient.organizationByAlias(alias: String, realm: String): Organization = organizations(realm).run {
+    if (isEmpty()) {
+        throw KeycloakApiException("Organization with alias: $alias does not exist in $realm!")
+    }
+    find { it.alias == alias }?.let {
+        return organization(realm, it.id)
+    }
+    throw KeycloakApiException("Organization with name: $alias does not exist in realm: $realm!")
+}
+
 fun KeycloakClient.editOrganization(realm: String, id: UUID, organization: UpdateOrganization) {
-    updateOrganization(id, realm, organization).run {
+    updateOrganization(realm, id, organization).run {
         if (status() < 200 || status() >= 300) {
             val responseText = body().asReader(StandardCharsets.UTF_8).use { it.readText() }
             throw KeycloakApiException("Failed to update Organisation: $responseText")

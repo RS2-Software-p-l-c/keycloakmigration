@@ -3,11 +3,13 @@ package de.klg71.keycloakmigration.changeControl.actions.organization
 import de.klg71.keycloakmigration.AbstractIntegrationTest
 import de.klg71.keycloakmigration.changeControl.actions.realm.UpdateRealmAction
 import de.klg71.keycloakmigration.keycloakapi.KeycloakClient
+import de.klg71.keycloakmigration.keycloakapi.model.Organization
 import de.klg71.keycloakmigration.keycloakapi.model.OrganizationDomain
-import de.klg71.keycloakmigration.keycloakapi.organizationByName
+import de.klg71.keycloakmigration.keycloakapi.organizationByAlias
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.Test
 import org.koin.core.component.inject
+import java.util.UUID
 import kotlin.getValue
 
 class UpdateOrganizationIntegTest : AbstractIntegrationTest() {
@@ -16,32 +18,80 @@ class UpdateOrganizationIntegTest : AbstractIntegrationTest() {
 
     @Test
     fun testUpdateOrganization() {
-        val name = "test"
+        val alias = "alias"
 
         UpdateRealmAction(testRealm, organizationsEnabled = true).executeIt()
         val addOrganizationAction = AddOrganizationAction(
             testRealm,
-            name,
-            alias = "alias",
-            redirectUrl = "http://redirectUrl.com",
-            domains = setOf(OrganizationDomain("test.com")),
-            attributes = mapOf("custom-attribute" to listOf("values"))
+            "name",
+            alias,
+            "http://redirectUrl.com",
+            setOf(OrganizationDomain("test.com")),
+            mapOf("custom-attribute" to listOf("values"))
         )
         addOrganizationAction.executeIt()
 
         UpdateOrganizationAction(
             testRealm,
-            name,
+            alias,
+            name = "updated-name",
             redirectUrl = "http://updatedRedirectUrl.com",
             domains = setOf(OrganizationDomain("updated-test.com")),
             attributes = mapOf("custom-attribute" to listOf("updated-values"))
         ).executeIt()
 
-        val updatedOrg = client.organizationByName(name, testRealm)
+        val expected = Organization(
+            id = UUID.fromString("b3afcd42-4bf9-4ae5-a5e9-a07eec0918fd"),
+            name = "updated-name",
+            alias = "alias",
+            redirectUrl = "http://updatedRedirectUrl.com",
+            domains = setOf(OrganizationDomain("updated-test.com")),
+            attributes = mapOf("custom-attribute" to listOf("updated-values"))
+        )
 
-        assertThat(updatedOrg.name).isEqualTo(name)
-        assertThat(updatedOrg.redirectUrl).isEqualTo("http://updatedRedirectUrl.com")
-        assertThat(updatedOrg.domains).isEqualTo(setOf(OrganizationDomain("updated-test.com")))
-        assertThat(updatedOrg.attributes).isEqualTo(mapOf("custom-attribute" to listOf("updated-values")))
+        val actual = client.organizationByAlias(alias, testRealm)
+
+        assertThat(expected)
+            .usingRecursiveComparison()
+            .ignoringFields("id", "creationTimestamp")
+            .isEqualTo(actual)
     }
-}
+
+    @Test
+    fun testUndoUpdateOrganization() {
+        val alias = "alias"
+        val originalName = "name"
+        val originalRedirectUrl = "http://redirectUrl.com"
+        val originalDomains = setOf(OrganizationDomain("test.com"))
+        val originalAttributes = mapOf("custom-attribute" to listOf("values"))
+
+        UpdateRealmAction(testRealm, organizationsEnabled = true).executeIt()
+        val addOrganizationAction = AddOrganizationAction(
+            testRealm,
+            originalName,
+            alias,
+            originalRedirectUrl,
+            originalDomains,
+            originalAttributes
+        )
+        addOrganizationAction.executeIt()
+
+        val updateOrganizationAction = UpdateOrganizationAction(
+            testRealm,
+            alias,
+            name = "updated-name",
+            redirectUrl = "http://updatedRedirectUrl.com",
+            domains = setOf(OrganizationDomain("updated-test.com")),
+            attributes = mapOf("custom-attribute" to listOf("updated-values"))
+        )
+        updateOrganizationAction.executeIt()
+
+        updateOrganizationAction.undoIt()
+
+        val revertedOrganization = client.organizationByAlias(alias, testRealm)
+
+        assertThat(revertedOrganization.name).isEqualTo(originalName)
+        assertThat(revertedOrganization.redirectUrl).isEqualTo(originalRedirectUrl)
+        assertThat(revertedOrganization.domains).isEqualTo(originalDomains)
+        assertThat(revertedOrganization.attributes).isEqualTo(originalAttributes)
+    }}

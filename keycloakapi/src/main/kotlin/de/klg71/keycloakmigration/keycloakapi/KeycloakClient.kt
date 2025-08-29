@@ -650,8 +650,8 @@ interface KeycloakClient {
     @Headers("Content-Type: application/json; charset=utf-8")
     @RequestLine("PUT /admin/realms/{realm}/organizations/{id}")
     fun updateOrganization(
-        @Param("id") id: UUID,
         @Param("realm") realm: String,
+        @Param("id") id: UUID,
         organization: UpdateOrganization
     ): Response
 }
