@@ -8,6 +8,7 @@ import de.klg71.keycloakmigration.keycloakapi.clientRoleByName
 import de.klg71.keycloakmigration.keycloakapi.clientUUID
 import de.klg71.keycloakmigration.keycloakapi.existsRole
 import de.klg71.keycloakmigration.keycloakapi.existsUser
+import de.klg71.keycloakmigration.keycloakapi.userRoles
 import de.klg71.keycloakmigration.keycloakapi.userUUID
 import java.util.Objects.isNull
 
@@ -24,7 +25,7 @@ class RevokeRoleAction(
         if (!client.existsRole(role, realm())) {
             throw MigrationException("Role with name: $role does not exist in realm: ${realm()}!")
         }
-        client.userRealmRolesExpanded(realm(), client.userUUID(user, realm())).run {
+        client.userRoles(realm(), client.userUUID(user, realm())).run {
             if (!map { it.name }.contains(role)) {
                 throw MigrationException("User with name: $user in realm: ${realm()} does not have role: $role!")
             }
