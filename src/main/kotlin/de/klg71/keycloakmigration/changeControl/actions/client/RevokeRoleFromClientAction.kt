@@ -10,7 +10,7 @@ import de.klg71.keycloakmigration.keycloakapi.model.RoleListItem
 import de.klg71.keycloakmigration.keycloakapi.model.AssignRole
 
 class RevokeRoleFromClientAction(
-    realm: String? = null,
+    realm: String?,
     private val role: String,
     private val clientId: String,
     private val roleClientId: String? = null
@@ -32,7 +32,6 @@ class RevokeRoleFromClientAction(
         val serviceAccountUser = client.clientServiceAccount(client.clientUUID(clientId, realm()), realm())
 
         if (roleClientId != null) {
-
             val clientOfRoleUUID = client.clientUUID(roleClientId, realm())
 
             val assignedClientRolesToServiceAccount = client.userClientRoles(
