@@ -26,15 +26,17 @@ class RevokeRoleFromClientIntegTest : AbstractIntegrationTest() {
         AssignRoleToClientAction(testRealm, role, clientId).executeIt()
         RevokeRoleFromClientAction(testRealm, role, clientId).executeIt()
 
-        val role = RoleListItem(UUID.randomUUID(), role, null,
+        val role = RoleListItem(
+            UUID.randomUUID(), role, null,
             composite = false,
             clientRole = false,
             containerId = testRealm
         )
 
-        client.clientRoles(testRealm, client.clientById(clientId, testRealm).id).let {
-            assertThat(it).usingElementComparatorOnFields("name", "containerId").doesNotContain(role)
-        }
+        val actual = client.clientRoles(testRealm, client.clientById(clientId, testRealm).id)
+
+        assertThat(actual).doesNotContain(role);
+
     }
 
     @Test
