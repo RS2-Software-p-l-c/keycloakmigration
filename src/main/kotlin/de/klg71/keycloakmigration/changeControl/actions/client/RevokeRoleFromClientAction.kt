@@ -33,13 +33,13 @@ class RevokeRoleFromClientAction(
         }
 
         if (!client.existsClient(clientId, realm()))
-            throw MigrationException("Client with name: $clientId does not exist in realm: ${realm()}!")
+            throw MigrationException("Client: $clientId does not exist in realm: ${realm()}!")
 
         val serviceAccountUser = client.clientServiceAccount(client.clientUUID(clientId, realm()), realm())
 
         if (roleClientId != null) {
             if (!client.existsClientRole(role, realm(), roleClientId))
-                throw MigrationException("Client role with name: $role does not exist for client '$roleClientId' in realm: ${realm()}!")
+                throw MigrationException("Client role: $role does not exist for client '$roleClientId' in realm: ${realm()}!")
 
             val clientOfRoleUUID = client.clientUUID(roleClientId, realm())
             val assignedClientRolesToServiceAccount = client.userClientRoles(
@@ -62,12 +62,14 @@ class RevokeRoleFromClientAction(
 
         } else {
             if (!client.existsRole(role, realm()))
-                throw MigrationException("Realm role with name: $role does not exist in realm: ${realm()}!")
+                throw MigrationException("Realm role: $role does not exist in realm: ${realm()}!")
 
-            val userRoles = client.userRoles(serviceAccountUser.id, realm(), expanded = false)
+            val userRoles = client.userRoles(realm(), serviceAccountUser.id, false)
 
             if (!userRoles.contains(roleListItem))
-                throw MigrationException("User does not have realm role: ${role}!")
+                throw MigrationException(
+                    "Client '$clientId' in realm: ${realm()} does not have realm role: $role!"
+                )
 
             client.revokeRealmRoles(
                 listOf(roleListItem.toAssignRole()),

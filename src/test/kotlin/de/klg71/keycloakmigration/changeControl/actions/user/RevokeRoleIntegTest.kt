@@ -6,6 +6,7 @@ import de.klg71.keycloakmigration.changeControl.actions.role.AddRoleAction
 import de.klg71.keycloakmigration.keycloakapi.KeycloakClient
 import de.klg71.keycloakmigration.keycloakapi.model.RoleListItem
 import de.klg71.keycloakmigration.keycloakapi.userByName
+import de.klg71.keycloakmigration.keycloakapi.userRoles
 import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.assertThatThrownBy
 import org.junit.Test
@@ -25,7 +26,7 @@ class RevokeRoleIntegTest : AbstractIntegrationTest() {
 
         val testRole = RoleListItem(UUID.randomUUID(), "testRole", null, false, false, testRealm)
 
-        client.userRealmRolesExpanded(testRealm, client.userByName("testIntegration", testRealm).id).let {
+        client.userRoles(testRealm, client.userByName("testIntegration", testRealm).id).let {
             assertThat(it).usingElementComparatorOnFields("name", "containerId").doesNotContain(testRole)
         }
     }

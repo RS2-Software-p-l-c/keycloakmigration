@@ -9,6 +9,7 @@ import de.klg71.keycloakmigration.keycloakapi.KeycloakClient
 import de.klg71.keycloakmigration.keycloakapi.clientUUID
 import de.klg71.keycloakmigration.keycloakapi.model.User
 import de.klg71.keycloakmigration.keycloakapi.userByName
+import de.klg71.keycloakmigration.keycloakapi.userRoles
 import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.assertThatThrownBy
 import org.junit.Test
@@ -60,7 +61,7 @@ class AddUserIntegTest : AbstractIntegrationTest() {
 
         val user = client.userByName(testRealm, "test")
         assertThat(client.userGroups(testRealm, user.id).map { it.name }).containsOnly("testGroup")
-        assertThat(client.userRealmRolesExpanded(testRealm, user.id).map { it.name }).contains("testRealmRole")
+        assertThat(client.userRoles(testRealm, user.id).map { it.name }).contains("testRealmRole")
         assertThat(
             client.userClientRoles(testRealm, user.id, client.clientUUID("testClient", testRealm))
                 .map { it.name }).containsOnly("testClientRole")

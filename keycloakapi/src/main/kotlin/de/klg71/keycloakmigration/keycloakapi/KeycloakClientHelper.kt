@@ -302,7 +302,7 @@ fun KeycloakClient.editOrganization(realm: String, id: UUID, organization: Updat
     }
 }
 
-fun KeycloakClient.userRoles(user: UUID, realm: String, expanded: Boolean): List<RoleListItem> = roles(realm).run {
+fun KeycloakClient.userRoles(realm: String, user: UUID, expanded: Boolean = true): List<RoleListItem> = roles(realm).run {
     return if (expanded)
         userRealmRolesExpanded(realm, user)
     else

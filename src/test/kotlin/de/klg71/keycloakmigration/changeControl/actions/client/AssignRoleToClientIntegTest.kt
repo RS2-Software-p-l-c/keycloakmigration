@@ -6,6 +6,7 @@ import de.klg71.keycloakmigration.changeControl.actions.role.AddRoleAction
 import de.klg71.keycloakmigration.keycloakapi.KeycloakClient
 import de.klg71.keycloakmigration.keycloakapi.clientUUID
 import de.klg71.keycloakmigration.keycloakapi.model.RoleListItem
+import de.klg71.keycloakmigration.keycloakapi.userRoles
 import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.assertThatThrownBy
 import org.junit.Test
@@ -30,7 +31,7 @@ class AssignRoleToClientIntegTest : AbstractIntegrationTest() {
 
         val testRole = RoleListItem(UUID.randomUUID(), role, null, false, false, testRealm)
 
-        client.userRealmRolesExpanded(testRealm, serviceAccount.id).let {
+        client.userRoles(testRealm, serviceAccount.id).let {
             assertThat(it).usingElementComparatorOnFields("name", "containerId").contains(testRole)
         }
     }
