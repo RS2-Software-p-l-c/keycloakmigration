@@ -35,7 +35,7 @@ class UpdateOrganizationAction(
             alias,
             name = name ?: original.name,
             redirectUrl = redirectUrl ?: original.redirectUrl,
-            domains = domains ?: original.domains, //TODO
+            domains = domains ?: original.domains,
             attributes = attributes ?: original.attributes
         )
 
