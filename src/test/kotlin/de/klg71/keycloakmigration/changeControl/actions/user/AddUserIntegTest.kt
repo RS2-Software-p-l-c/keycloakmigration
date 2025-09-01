@@ -60,7 +60,7 @@ class AddUserIntegTest : AbstractIntegrationTest() {
 
         val user = client.userByName(testRealm, "test")
         assertThat(client.userGroups(testRealm, user.id).map { it.name }).containsOnly("testGroup")
-        assertThat(client.userRoles(testRealm, user.id).map { it.name }).contains("testRealmRole")
+        assertThat(client.userRealmRolesExpanded(testRealm, user.id).map { it.name }).contains("testRealmRole")
         assertThat(
             client.userClientRoles(testRealm, user.id, client.clientUUID("testClient", testRealm))
                 .map { it.name }).containsOnly("testClientRole")

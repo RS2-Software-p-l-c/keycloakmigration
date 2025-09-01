@@ -5,9 +5,11 @@ import de.klg71.keycloakmigration.changeControl.actions.MigrationException
 import de.klg71.keycloakmigration.keycloakapi.clientRoleByName
 import de.klg71.keycloakmigration.keycloakapi.clientUUID
 import de.klg71.keycloakmigration.keycloakapi.existsClient
+import de.klg71.keycloakmigration.keycloakapi.existsClientRole
 import de.klg71.keycloakmigration.keycloakapi.existsRole
 import de.klg71.keycloakmigration.keycloakapi.model.RoleListItem
 import de.klg71.keycloakmigration.keycloakapi.model.AssignRole
+import de.klg71.keycloakmigration.keycloakapi.userRoles
 
 class RevokeRoleFromClientAction(
     realm: String?,
@@ -16,33 +18,39 @@ class RevokeRoleFromClientAction(
     private val roleClientId: String? = null
 ) : Action(realm) {
 
+    private var roleListItem = findRole().let {
+        RoleListItem(
+            id = it.id,
+            name = it.name,
+            description = it.description,
+            composite = it.composite,
+            clientRole = it.clientRole,
+            containerId = it.containerId
+        )
+    }
+
     override fun execute() {
         if (!client.existsClient(clientId, realm()))
             throw MigrationException("Client with name: $clientId does not exist in realm: ${realm()}!")
 
-        val foundRole = findRole()
-        val roleListItem = RoleListItem(
-            id = foundRole.id,
-            name = foundRole.name,
-            description = foundRole.description,
-            composite = foundRole.composite,
-            clientRole = foundRole.clientRole,
-            containerId = foundRole.containerId
-        )
         val serviceAccountUser = client.clientServiceAccount(client.clientUUID(clientId, realm()), realm())
 
         if (roleClientId != null) {
-            val clientOfRoleUUID = client.clientUUID(roleClientId, realm())
+            if (!client.existsClientRole(role, realm(), roleClientId))
+                throw MigrationException("Client role with name: $role does not exist for client '$roleClientId' in realm: ${realm()}!")
 
+            val clientOfRoleUUID = client.clientUUID(roleClientId, realm())
             val assignedClientRolesToServiceAccount = client.userClientRoles(
                 realm(),
-                serviceAccountUser.id, clientOfRoleUUID
+                serviceAccountUser.id,
+                clientOfRoleUUID
             )
-            if (!assignedClientRolesToServiceAccount.map { it.name }.contains(role)) {
+
+            if (!assignedClientRolesToServiceAccount.map { it.name }.contains(role))
                 throw MigrationException(
-                    "Service account for client '$clientId' in realm: ${realm()} does not have client role: $role from client: $roleClientId!"
+                    "Client '$clientId' in realm: ${realm()} does not have client role: $roleClientId.$role!"
                 )
-            }
+
             client.revokeClientRoles(
                 listOf(roleListItem.toAssignRole()),
                 realm(),
@@ -54,26 +62,20 @@ class RevokeRoleFromClientAction(
             if (!client.existsRole(role, realm()))
                 throw MigrationException("Realm role with name: $role does not exist in realm: ${realm()}!")
 
-            // TODO: Discuss: findRealmRolesAssignedToClient does not exist - meaning we can't validate that a client has the role before attempting to remove it
+            val userRoles = client.userRoles(serviceAccountUser.id, realm(), expanded = false)
+
+            if (!userRoles.contains(roleListItem))
+                throw MigrationException("User does not have realm role: ${role}!")
+
             client.revokeRealmRoles(
                 listOf(roleListItem.toAssignRole()),
                 realm(),
-                serviceAccountUser.id)
-
+                serviceAccountUser.id
+            )
         }
     }
 
     override fun undo() {
-        val foundRole = findRole()
-        val roleListItem = RoleListItem(
-            id = foundRole.id,
-            name = foundRole.name,
-            description = foundRole.description,
-            composite = foundRole.composite,
-            clientRole = foundRole.clientRole,
-            containerId = foundRole.containerId
-        )
-
         if (roleClientId != null) {
             val serviceAccountUser = client.clientServiceAccount(client.clientUUID(clientId, realm()), realm())
 
@@ -92,10 +94,10 @@ class RevokeRoleFromClientAction(
         }
     }
 
-    private fun findRole() = if (roleClientId == null) {
-        client.roleByName(role, realm())
-    } else {
+    private fun findRole() = if (roleClientId != null) {
         client.clientRoleByName(role, roleClientId, realm())
+    } else {
+        client.roleByName(role, realm())
     }
 
     private fun RoleListItem.toAssignRole(): AssignRole {

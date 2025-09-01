@@ -24,7 +24,7 @@ class AssignRoleIntegTest : AbstractIntegrationTest() {
 
         val testRole = RoleListItem(UUID.randomUUID(), "testRole", null, false, false, testRealm)
 
-        client.userRoles(testRealm, client.userByName("testIntegration", testRealm).id).let {
+        client.userRealmRolesExpanded(testRealm, client.userByName("testIntegration", testRealm).id).let {
             assertThat(it).usingElementComparatorOnFields("name", "containerId").contains(testRole)
         }
     }

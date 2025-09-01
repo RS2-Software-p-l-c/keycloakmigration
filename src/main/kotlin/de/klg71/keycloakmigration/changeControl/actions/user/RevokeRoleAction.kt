@@ -24,7 +24,7 @@ class RevokeRoleAction(
         if (!client.existsRole(role, realm())) {
             throw MigrationException("Role with name: $role does not exist in realm: ${realm()}!")
         }
-        client.userRoles(realm(), client.userUUID(user, realm())).run {
+        client.userRealmRolesExpanded(realm(), client.userUUID(user, realm())).run {
             if (!map { it.name }.contains(role)) {
                 throw MigrationException("User with name: $user in realm: ${realm()} does not have role: $role!")
             }
