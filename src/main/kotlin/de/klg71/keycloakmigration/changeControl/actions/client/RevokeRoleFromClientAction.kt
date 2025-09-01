@@ -18,18 +18,20 @@ class RevokeRoleFromClientAction(
     private val roleClientId: String? = null
 ) : Action(realm) {
 
-    private var roleListItem = findRole().let {
-        RoleListItem(
-            id = it.id,
-            name = it.name,
-            description = it.description,
-            composite = it.composite,
-            clientRole = it.clientRole,
-            containerId = it.containerId
-        )
-    }
+    private lateinit var roleListItem: RoleListItem
 
     override fun execute() {
+        roleListItem = findRole().let {
+            RoleListItem(
+                id = it.id,
+                name = it.name,
+                description = it.description,
+                composite = it.composite,
+                clientRole = it.clientRole,
+                containerId = it.containerId
+            )
+        }
+
         if (!client.existsClient(clientId, realm()))
             throw MigrationException("Client with name: $clientId does not exist in realm: ${realm()}!")
 
