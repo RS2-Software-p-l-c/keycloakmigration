@@ -36,9 +36,7 @@ class RevokeRoleFromClientIntegTest : AbstractIntegrationTest() {
         )
 
         val actual = client.clientRoles(testRealm, client.clientById(clientId, testRealm).id)
-
         assertThat(actual).doesNotContain(role);
-
     }
 
     @Test
