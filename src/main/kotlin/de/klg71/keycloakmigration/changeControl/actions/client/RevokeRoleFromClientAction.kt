@@ -39,7 +39,8 @@ class RevokeRoleFromClientAction(
 
         if (roleClientId != null) {
             if (!client.existsClientRole(role, realm(), roleClientId))
-                throw MigrationException("Client role: $role does not exist for client '$roleClientId' in realm: ${realm()}!")
+                throw MigrationException("Client role: $role does not exist " +
+                    "for client '$roleClientId' in realm: ${realm()}!")
 
             val clientOfRoleUUID = client.clientUUID(roleClientId, realm())
             val assignedClientRolesToServiceAccount = client.userClientRoles(
