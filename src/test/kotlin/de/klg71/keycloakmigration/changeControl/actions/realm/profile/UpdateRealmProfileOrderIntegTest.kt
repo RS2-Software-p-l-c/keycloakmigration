@@ -29,21 +29,20 @@ class UpdateRealmProfileOrderIntegTest : AbstractIntegrationTest() {
 
     @Test
     fun testReorderAttributes_AttributeInOrderNotInProfile_Throws() {
-        val invalidOrder = listOf("lastName", "nonExistentAttr", "email", "username")
+        val orderedAttributes = listOf("lastName", "extraAttribute", "email", "username")
 
         assertThatThrownBy {
-            UpdateRealmProfileOrderAction(testRealm, invalidOrder).executeIt()
+            UpdateRealmProfileOrderAction(testRealm, orderedAttributes).executeIt()
         }.isInstanceOf(MigrationException::class.java)
-            .hasMessageContaining("Attribute 'nonExistentAttr' does not exist in the realm profile!")
+            .hasMessageContaining("Attribute 'extraAttribute' does not exist in the realm profile!")
     }
 
     @Test
     fun testReorderAttributes_ProfileHasExtraAttr_Throws() {
-        val profileAttributes = client.realmUserProfile(testRealm).attributes.map { it.name }
-        val missingOrder = profileAttributes.filter { it != "username" }
+        val orderedAttributes = listOf("lastName", "firstName", "email")
 
         assertThatThrownBy {
-            UpdateRealmProfileOrderAction(testRealm, missingOrder).executeIt()
+            UpdateRealmProfileOrderAction(testRealm, orderedAttributes).executeIt()
         }.isInstanceOf(MigrationException::class.java)
             .hasMessageContaining("Attributes missing in new order: [username]")
 
