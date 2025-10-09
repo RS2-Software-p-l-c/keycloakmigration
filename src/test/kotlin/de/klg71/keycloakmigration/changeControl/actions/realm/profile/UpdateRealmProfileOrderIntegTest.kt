@@ -15,9 +15,6 @@ class UpdateRealmProfileOrderIntegTest : AbstractIntegrationTest() {
     fun testReorderAttributes_Success() {
         val orderedAttributes = listOf("lastName", "firstName", "email", "username")
 
-        val originalAttributes = client.realmUserProfile(testRealm).attributes
-        val originalNames = originalAttributes.map { it.name }
-
         UpdateRealmProfileOrderAction(
             testRealm,
             orderedAttributes
