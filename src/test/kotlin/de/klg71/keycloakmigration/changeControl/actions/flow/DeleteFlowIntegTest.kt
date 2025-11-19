@@ -18,7 +18,11 @@ class DeleteFlowIntegTest : AbstractIntegrationTest() {
         val alias = "FloRida"
         AddFlowAction(
             testRealm, alias, "Right round", executions = listOf(
-                AuthenticationExecutionImport(UUID.randomUUID(),Flow.Requirement.REQUIRED, "idp-auto-link", 0, 0, 0,mapOf())
+                AuthenticationExecutionImport(
+                    UUID.randomUUID(),
+                    Flow.Requirement.REQUIRED,
+                    "idp-auto-link",
+                    0, 0, 0,mapOf())
             )
         ).executeIt()
 

@@ -95,13 +95,21 @@ class AddFlowIntegTest : AbstractIntegrationTest() {
         val alias = "FloRida"
         AddFlowAction(
             testRealm, alias, "Right round", executions = listOf(
-                AuthenticationExecutionImport(UUID.randomUUID(),Flow.Requirement.REQUIRED, "idp-auto-link", 0, 0, 0, mapOf())
+                AuthenticationExecutionImport(
+                    UUID.randomUUID(),
+                    Flow.Requirement.REQUIRED,
+                    "idp-auto-link",
+                    0, 0, 0, mapOf())
             )
         ).executeIt()
         assertThatThrownBy {
             AddFlowAction(
                 testRealm, alias, "Right round", executions = listOf(
-                    AuthenticationExecutionImport(UUID.randomUUID(),Flow.Requirement.REQUIRED, "idp-auto-link", 0, 0, 0, mapOf())
+                    AuthenticationExecutionImport(
+                        UUID.randomUUID(),
+                        Flow.Requirement.REQUIRED,
+                        "idp-auto-link",
+                        0, 0, 0, mapOf())
                 )
             ).executeIt()
         }.isInstanceOf(KeycloakApiException::class.java).hasMessage("Import Flow failed, Flow: $alias already exists")

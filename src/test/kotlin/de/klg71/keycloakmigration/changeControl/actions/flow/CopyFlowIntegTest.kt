@@ -61,7 +61,11 @@ class CopyFlowIntegTest : AbstractIntegrationTest() {
         val alias = "TestFLow"
         AddFlowAction(
             testRealm, alias, "Right round", executions = listOf(
-                AuthenticationExecutionImport(UUID.randomUUID(),Flow.Requirement.REQUIRED, "idp-auto-link", 0, 0, 0, mapOf())
+                AuthenticationExecutionImport(
+                    UUID.randomUUID(),
+                    Flow.Requirement.REQUIRED,
+                    "idp-auto-link",
+                    0, 0, 0, mapOf())
             )
         ).executeIt()
         assertThatThrownBy {
