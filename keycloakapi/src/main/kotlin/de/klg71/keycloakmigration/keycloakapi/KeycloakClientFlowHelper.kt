@@ -208,11 +208,7 @@ fun KeycloakClient.restoreFlowSnapshot(realm: String, flowAlias: String, nodes: 
                 val executionId =
                     addFlowExecution(realm, flowAlias, AddFlowExecution(node.providerId)).extractLocationUUID()
                 setRequirementAndPriority(realm, flowAlias, executionId, node, node.providerId)
-                node.config?.let {
-                    updateFlowExecutionWithNewConfiguration(
-                        realm, executionId.toString(), AuthenticatorConfig(it.alias, it.config)
-                    )
-                }
+                node.config?.let { addExecutionConfig(realm, executionId, it) }
             }
 
             is SubFlowNode -> {
@@ -225,6 +221,22 @@ fun KeycloakClient.restoreFlowSnapshot(realm: String, flowAlias: String, nodes: 
                 setRequirementAndPriority(realm, flowAlias, execution.id, node, execution.providerId)
                 restoreFlowSnapshot(realm, node.alias, node.executions)
             }
+        }
+    }
+}
+
+/**
+ * Creates the authenticator config of the execution [executionId] with the alias and values of [config].
+ */
+fun KeycloakClient.addExecutionConfig(realm: String, executionId: UUID, config: AuthenticatorConfig) {
+    updateFlowExecutionWithNewConfiguration(
+        realm, executionId.toString(), AuthenticatorConfig(config.alias, config.config)
+    ).run {
+        if (!isSuccessful()) {
+            throw KeycloakApiException(
+                "Failed to create authenticator config ${config.alias}: ${body()?.asReader()?.readText()}",
+                statusCode = status()
+            )
         }
     }
 }

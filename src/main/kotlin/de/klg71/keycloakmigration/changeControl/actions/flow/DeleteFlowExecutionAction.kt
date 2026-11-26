@@ -2,6 +2,7 @@ package de.klg71.keycloakmigration.changeControl.actions.flow
 
 import de.klg71.keycloakmigration.changeControl.actions.Action
 import de.klg71.keycloakmigration.changeControl.actions.MigrationException
+import de.klg71.keycloakmigration.keycloakapi.addExecutionConfig
 import de.klg71.keycloakmigration.keycloakapi.extractLocationUUID
 import de.klg71.keycloakmigration.keycloakapi.isSuccessful
 import de.klg71.keycloakmigration.keycloakapi.model.AddFlowExecution
@@ -88,11 +89,7 @@ class DeleteFlowExecutionAction(
                         "Status: ${status()}, Reason: ${reason()}"
                 )
         }
-        execution.config?.let {
-            client.updateFlowExecutionWithNewConfiguration(
-                realm(), executionId.toString(), AuthenticatorConfig(it.alias, it.config)
-            )
-        }
+        execution.config?.let { client.addExecutionConfig(realm(), executionId, it) }
         deleted = null
     }
 
