@@ -8,7 +8,6 @@ import de.klg71.keycloakmigration.keycloakapi.model.FlowNode
 import de.klg71.keycloakmigration.keycloakapi.model.SubFlowNode
 
 private const val PRIORITY_STEP = 10
-private val SUB_FLOW_TYPES = setOf("basic-flow", "form-flow")
 
 /**
  * One entry of a `replaceFlow` tree. An entry with a [providerId] is an execution, an entry with an [alias]

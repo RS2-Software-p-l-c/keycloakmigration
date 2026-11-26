@@ -2,7 +2,7 @@ package de.klg71.keycloakmigration.changeControl.actions.flow
 
 import de.klg71.keycloakmigration.changeControl.actions.Action
 import de.klg71.keycloakmigration.changeControl.actions.MigrationException
-import de.klg71.keycloakmigration.keycloakapi.extractLocationUUID
+import de.klg71.keycloakmigration.keycloakapi.createFlowFromSnapshot
 import de.klg71.keycloakmigration.keycloakapi.flowBindings
 import de.klg71.keycloakmigration.keycloakapi.flowSnapshot
 import de.klg71.keycloakmigration.keycloakapi.isSuccessful
@@ -15,7 +15,6 @@ import de.klg71.keycloakmigration.keycloakapi.model.FlowNode
 import de.klg71.keycloakmigration.keycloakapi.model.SubFlowNode
 import de.klg71.keycloakmigration.keycloakapi.model.UpdateFlow
 import de.klg71.keycloakmigration.keycloakapi.moveFlowBinding
-import de.klg71.keycloakmigration.keycloakapi.restoreFlowSnapshot
 import java.util.UUID
 
 private const val RUN_ID_LENGTH = 8
@@ -92,10 +91,10 @@ class ReplaceFlowAction(
 
     /** Builds the top-level flow [flowAlias] with [nodes] and checks it came out as declared. */
     private fun build(flowAlias: String, nodes: List<FlowNode>): UUID {
-        val flowId = client.addFlow(realm(), AddFlow(flowAlias, false, description, providerId, true))
-            .extractLocationUUID()
-        newFlowId = flowId
-        client.restoreFlowSnapshot(realm(), flowAlias, nodes)
+        // Recorded as soon as the flow exists, so undo deletes it if filling it fails
+        val flowId = client.createFlowFromSnapshot(
+            realm(), AddFlow(flowAlias, false, description, providerId, true), nodes
+        ) { newFlowId = it }
 
         if (!flowTreeMatches(nodes, client.flowSnapshot(realm(), flowAlias))) {
             throw MigrationException("Flow $flowAlias doesn't match its declared tree after building it")
@@ -207,9 +206,9 @@ class ReplaceFlowAction(
         if (newFlowExists) renameTree(flowId!!, toTemporary = true)
 
         val oldFlowId = if (oldDeleted) {
-            client.addFlow(realm(), AddFlow(old.alias, old.builtIn, old.description, old.providerId, old.topLevel))
-                .extractLocationUUID()
-                .also { client.restoreFlowSnapshot(realm(), old.alias, oldExecutions) }
+            client.createFlowFromSnapshot(
+                realm(), AddFlow(old.alias, old.builtIn, old.description, old.providerId, old.topLevel), oldExecutions
+            )
         } else {
             old.id
         }
