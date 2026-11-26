@@ -126,7 +126,10 @@ changes:
           providerId: console-username-password
 ```
 ## DeleteFlow
-Deletes a flow, if one with this alias exists
+Deletes a flow, if one with this alias exists.
+
+On rollback the flow is recreated with its executions as they were before the delete, including sub
+flows with their requirement and priority, and authenticator configs.
 
 ### Parameters
 - realm: String, optional
