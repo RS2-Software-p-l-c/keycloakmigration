@@ -190,12 +190,17 @@ changes:
 ```
 
 ## DeleteFlowExecution
-Deletes a flow execution from a specified flow.
+Deletes a flow execution from a specified flow. The first execution with the given provider is
+deleted, including one nested in a sub flow of `flowAlias`. Sub flows can't be deleted with this
+change: if the provider matches a sub flow, the change fails without deleting anything.
+
+On rollback the deleted execution is added back to the flow or sub flow it came from, with its
+requirement, priority and authenticator config. The rest of the flow isn't changed.
 
 ### Parameters
 - realm: String, optional
-- flowAlias: String, not optional
-- provider: String, not optional
+- flowAlias: String, not optional, alias of the flow to search, sub flows included
+- provider: String, not optional, provider id of the execution to delete
 
 ### Example
 ```yaml
