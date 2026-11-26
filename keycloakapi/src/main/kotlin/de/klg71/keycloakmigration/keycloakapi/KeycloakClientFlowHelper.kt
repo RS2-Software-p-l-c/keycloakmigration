@@ -11,6 +11,7 @@ import de.klg71.keycloakmigration.keycloakapi.model.AuthenticationFlowAction
 import de.klg71.keycloakmigration.keycloakapi.model.AuthenticatorConfig
 import de.klg71.keycloakmigration.keycloakapi.model.CopyFlowExecution
 import de.klg71.keycloakmigration.keycloakapi.model.ExecutionNode
+import de.klg71.keycloakmigration.keycloakapi.model.Flow
 import de.klg71.keycloakmigration.keycloakapi.model.FlowNode
 import de.klg71.keycloakmigration.keycloakapi.model.ImportFlow
 import de.klg71.keycloakmigration.keycloakapi.model.SubFlow
@@ -34,14 +35,9 @@ private fun KeycloakClient.configureSubFlow(
     flowAlias: String,
     subflow: AddSubFlow,
     executions: List<AuthenticationFlowAction>
-): UUID {
-    return addSubFlow(
-        realm,
-        flowAlias,
-        subflow
-    ).extractLocationUUID().also {
-        addExecutions(realm, subflow.alias, executions)
-    }
+) {
+    addSubFlowToFlow(realm, flowAlias, subflow)
+    addExecutions(realm, subflow.alias, executions)
 }
 
 /**
@@ -107,14 +103,11 @@ private fun KeycloakClient.addExecution(
     flowAlias: String,
     executionImport: AuthenticationExecutionImport
 ) {
-    val executionId =
-        addFlowExecution(realm, flowAlias, AddFlowExecution(executionImport.providerId)).extractLocationUUID()
-    updateFlowExecution(
-        realm, flowAlias, UpdateFlowExecution(
-            executionId, executionImport.requirement, executionImport.level, executionImport.index,
-            executionImport.priority, executionImport.providerId
-        )
+    val executionId = addExecutionToFlow(
+        realm, flowAlias, executionImport.providerId, executionImport.requirement, executionImport.priority
     )
+    // Unchecked, as before: an execution imported this way always gets a config named after its provider,
+    // even an empty one, and a second one with the same alias is left without it
     updateFlowExecutionWithNewConfiguration(
         realm, executionId.toString(), AuthenticatorConfig(
             executionImport.providerId + "_config",
@@ -205,25 +198,75 @@ fun KeycloakClient.restoreFlowSnapshot(realm: String, flowAlias: String, nodes: 
     nodes.forEach { node ->
         when (node) {
             is ExecutionNode -> {
-                val executionId =
-                    addFlowExecution(realm, flowAlias, AddFlowExecution(node.providerId)).extractLocationUUID()
-                setRequirementAndPriority(realm, flowAlias, executionId, node, node.providerId)
+                val executionId = addExecutionToFlow(realm, flowAlias, node.providerId, node.requirement, node.priority)
                 node.config?.let { addExecutionConfig(realm, executionId, it) }
             }
 
             is SubFlowNode -> {
-                addSubFlow(realm, flowAlias, AddSubFlow(node.alias, node.description, node.type, node.providerId))
-                    .extractLocationUUID()
-                // A sub flow's alias is unique in the realm and is its execution's display name
-                val execution = flowExecutions(realm, flowAlias).first {
-                    it.authenticationFlow && it.displayName == node.alias
-                }
-                setRequirementAndPriority(realm, flowAlias, execution.id, node, execution.providerId)
+                addSubFlowToFlow(
+                    realm, flowAlias, AddSubFlow(node.alias, node.description, node.type, node.providerId),
+                    node.requirement, node.priority
+                )
                 restoreFlowSnapshot(realm, node.alias, node.executions)
             }
         }
     }
 }
+
+/**
+ * Creates the top-level flow [flow] and fills it with the executions of a [flowSnapshot]. Returns its id.
+ */
+fun KeycloakClient.createFlowFromSnapshot(realm: String, flow: AddFlow, nodes: List<FlowNode>): UUID =
+    addFlow(realm, flow).extractLocationUUID().also { restoreFlowSnapshot(realm, flow.alias, nodes) }
+
+/**
+ * Adds an execution of [providerId] to the flow (or sub flow) [flowAlias] and returns its id. A
+ * [requirement] or [priority] that is given replaces Keycloak's default for a new execution.
+ */
+fun KeycloakClient.addExecutionToFlow(
+    realm: String,
+    flowAlias: String,
+    providerId: String?,
+    requirement: Flow.Requirement? = null,
+    priority: Int? = null
+): UUID {
+    val executionId = addFlowExecution(realm, flowAlias, AddFlowExecution(providerId)).extractLocationUUID()
+    setRequirementAndPriority(realm, flowAlias, executionId, requirement, priority)
+    return executionId
+}
+
+/**
+ * Adds the sub flow [subFlow] to the flow (or sub flow) [flowAlias] and returns the sub flow's execution
+ * in it. A [requirement] or [priority] that is given replaces Keycloak's default for a new sub flow.
+ * [onCreated] runs as soon as the sub flow exists, before the calls that can still fail after it.
+ */
+@Suppress("LongParameterList")
+fun KeycloakClient.addSubFlowToFlow(
+    realm: String,
+    flowAlias: String,
+    subFlow: AddSubFlow,
+    requirement: Flow.Requirement? = null,
+    priority: Int? = null,
+    onCreated: () -> Unit = {}
+): AuthenticationExecution {
+    addSubFlow(realm, flowAlias, subFlow).run {
+        if (!isSuccessful()) {
+            throw KeycloakApiException(
+                "Failed to add subflow ${subFlow.alias} to $flowAlias: ${body()?.asReader()?.readText()}",
+                statusCode = status()
+            )
+        }
+    }
+    onCreated()
+    val execution = findSubFlowExecution(realm, flowAlias, subFlow.alias)
+        ?: throw KeycloakApiException("Sub flow ${subFlow.alias} was added but not found in $flowAlias")
+    setRequirementAndPriority(realm, flowAlias, execution.id, requirement, priority)
+    return execution
+}
+
+/** The execution of the sub flow [alias] in [flowAlias]. A sub flow's alias is its execution's display name. */
+fun KeycloakClient.findSubFlowExecution(realm: String, flowAlias: String, alias: String): AuthenticationExecution? =
+    flowExecutions(realm, flowAlias).firstOrNull { it.authenticationFlow && it.displayName == alias }
 
 /**
  * Creates the authenticator config of the execution [executionId] with the alias and values of [config].
@@ -245,15 +288,21 @@ private fun KeycloakClient.setRequirementAndPriority(
     realm: String,
     flowAlias: String,
     executionId: UUID,
-    node: FlowNode,
-    providerId: String?
+    requirement: Flow.Requirement?,
+    priority: Int?
 ) {
+    if (requirement == null && priority == null) return
+    val execution = flowExecutions(realm, flowAlias).first { it.id == executionId }
     updateFlowExecution(
-        realm, flowAlias, UpdateFlowExecution(executionId, node.requirement, 0, 0, node.priority, providerId)
+        realm, flowAlias, UpdateFlowExecution(
+            executionId, requirement ?: execution.requirement, execution.level, execution.index,
+            priority ?: execution.priority, execution.providerId
+        )
     ).run {
         if (!isSuccessful()) {
+            val name = execution.providerId ?: execution.displayName
             throw KeycloakApiException(
-                "Failed to set requirement/priority of $providerId in $flowAlias: ${body()?.asReader()?.readText()}",
+                "Failed to set requirement/priority of $name in $flowAlias: ${body()?.asReader()?.readText()}",
                 statusCode = status()
             )
         }
