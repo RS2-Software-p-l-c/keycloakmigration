@@ -40,7 +40,11 @@ internal fun List<FlowEntry>.toFlowNodes(parentAlias: String): List<FlowNode> = 
     } else {
         ExecutionNode(
             entry.providerId, entry.requirement, priority,
-            entry.config?.let { AuthenticatorConfig(entry.configAlias ?: "$parentAlias ${entry.providerId}", it) }
+            // Keycloak drops empty values when it creates a config, so they aren't part of the tree
+            entry.config?.let {
+                val configAlias = entry.configAlias ?: "$parentAlias ${entry.providerId}"
+                AuthenticatorConfig(configAlias, it.filterValues(String::isNotEmpty))
+            }
         )
     }
 }.sortedBy { it.priority }

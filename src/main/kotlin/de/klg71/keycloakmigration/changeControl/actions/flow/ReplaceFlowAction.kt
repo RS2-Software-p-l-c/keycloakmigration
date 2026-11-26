@@ -13,7 +13,6 @@ import de.klg71.keycloakmigration.keycloakapi.model.ExecutionNode
 import de.klg71.keycloakmigration.keycloakapi.model.Flow
 import de.klg71.keycloakmigration.keycloakapi.model.FlowBinding
 import de.klg71.keycloakmigration.keycloakapi.model.FlowNode
-import de.klg71.keycloakmigration.keycloakapi.model.MASKED_CONFIG_VALUE
 import de.klg71.keycloakmigration.keycloakapi.model.maskedConfigs
 import de.klg71.keycloakmigration.keycloakapi.model.SubFlowNode
 import de.klg71.keycloakmigration.keycloakapi.model.UpdateFlow
@@ -242,13 +241,11 @@ class ReplaceFlowAction(
         val configAlias = target(currentAlias, toTemporary)
         if (configAlias == currentAlias) return
 
+        // Values Keycloak returned masked can be sent back as they are: the update keeps the stored value
+        // for a masked one. Keycloak doesn't check that the new alias is free here, which takenAlias does
+        // beforehand for every config used by a flow. A config no execution uses can't be checked, as
+        // Keycloak has no call to list a realm's configs.
         val values = declaredConfigs[target(currentAlias, toTemporary = false)] ?: config.config
-        if (MASKED_CONFIG_VALUE in values.values) {
-            throw MigrationException(
-                "Authenticator config $currentAlias can't be renamed: Keycloak hides some of its values and the " +
-                    "replaceFlow tree doesn't declare them"
-            )
-        }
         client.updateAuthenticatorConfiguration(
             realm(), configId, AuthenticatorConfig(configAlias, values, UUID.fromString(configId))
         ).run {

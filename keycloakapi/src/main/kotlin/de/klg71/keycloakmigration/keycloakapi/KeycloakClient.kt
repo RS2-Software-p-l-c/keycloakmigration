@@ -462,8 +462,13 @@ interface KeycloakClient {
     @RequestLine("GET /admin/realms/{realm}/identity-provider/instances/{alias}")
     fun identityProviderRepresentation(@Param("realm") realm: String, @Param("alias") alias: String): Map<String, Any?>
 
-    @RequestLine("GET /admin/realms/{realm}/identity-provider/instances")
-    fun identityProviderRepresentations(@Param("realm") realm: String): List<Map<String, Any?>>
+    // Keycloak returns at most 100 identity providers when max isn't given
+    @RequestLine("GET /admin/realms/{realm}/identity-provider/instances?first={first}&max={max}")
+    fun identityProviderRepresentations(
+        @Param("realm") realm: String,
+        @Param("first") first: Int,
+        @Param("max") max: Int
+    ): List<Map<String, Any?>>
 
     @RequestLine("PUT /admin/realms/{realm}/identity-provider/instances/{alias}")
     @Headers("Content-Type: application/json; charset=utf-8")

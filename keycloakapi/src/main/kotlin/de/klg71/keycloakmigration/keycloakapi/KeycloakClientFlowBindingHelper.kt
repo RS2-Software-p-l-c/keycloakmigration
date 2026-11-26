@@ -33,7 +33,7 @@ fun KeycloakClient.flowBindings(realm: String, flowAlias: String, flowId: UUID):
         }
     }
 
-    val identityProviderBindings = identityProviderRepresentations(realm).flatMap { identityProvider ->
+    val identityProviderBindings = allIdentityProviderRepresentations(realm).flatMap { identityProvider ->
         IDENTITY_PROVIDER_FLOW_FIELDS
             .filter { identityProvider[it] == flowAlias }
             .map { IdentityProviderFlowBinding(identityProvider["alias"].toString(), it) }
@@ -41,6 +41,16 @@ fun KeycloakClient.flowBindings(realm: String, flowAlias: String, flowId: UUID):
 
     return realmBindings + clientBindings + identityProviderBindings
 }
+
+private const val IDENTITY_PROVIDER_PAGE_SIZE = 100
+
+/** Every identity provider of the realm, read a page at a time. */
+fun KeycloakClient.allIdentityProviderRepresentations(realm: String): List<Map<String, Any?>> =
+    generateSequence(0) { it + IDENTITY_PROVIDER_PAGE_SIZE }
+        .map { identityProviderRepresentations(realm, it, IDENTITY_PROVIDER_PAGE_SIZE) }
+        .takeWhile { it.isNotEmpty() }
+        .flatten()
+        .toList()
 
 /**
  * Points [binding] at the top-level flow [flowAlias] (with id [flowId]). Each binding is one update, so a

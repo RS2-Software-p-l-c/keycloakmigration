@@ -360,4 +360,45 @@ class ReplaceFlowIntegTest : AbstractIntegrationTest() {
 
         assertThat(client.flowSnapshot(testRealm, alias)).isEqualTo(before)
     }
+
+    @Test
+    fun testEmptyConfigValueIsIgnored() {
+        // Keycloak drops empty config values, so a declared one must not make the flow differ
+        val executions = listOf(
+            FlowEntry(
+                providerId = "identity-provider-redirector", requirement = ALTERNATIVE,
+                config = mapOf("defaultProvider" to "some-idp", "unused" to "")
+            )
+        )
+        replace(executions).executeIt()
+        val ids = executionIds()
+
+        replace(executions).executeIt()
+
+        assertThat(executionIds()).isEqualTo(ids)
+    }
+
+    @Test
+    fun testBindingsBeyondTheFirstHundredIdentityProvidersAreMoved() {
+        addOldFlow()
+        // Keycloak lists 100 identity providers unless asked for more, so some of these are on a later page
+        val identityProviders = (0..100).map { "idp-%03d".format(it) }
+        identityProviders.forEach {
+            client.addIdentityProvider(
+                addKeycloakIdentityProvider(
+                    "https://idp.example.com/auth", "https://idp.example.com/token", it, "client", "secret",
+                    firstBrokerLoginFlowAlias = alias
+                ), testRealm
+            )
+        }
+
+        replace().executeIt()
+
+        assertThat(matches(tree())).isTrue
+        assertThat(temporaryFlows()).isEmpty()
+        identityProviders.forEach {
+            assertThat(client.identityProviderRepresentation(testRealm, it)["firstBrokerLoginFlowAlias"])
+                .isEqualTo(alias)
+        }
+    }
 }

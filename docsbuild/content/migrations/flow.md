@@ -176,7 +176,9 @@ If no flow has this alias, it is created.
   replacement. They can't be recreated either, so a flow whose configs have such values isn't replaced:
   a rollback couldn't rebuild it.
 - Sub flow and config aliases are unique in the realm. If another flow already uses one of the declared
-  aliases, the change fails before anything changes.
+  aliases, the change fails before anything changes. Only configs that some execution uses can be
+  checked: Keycloak has no call to list a realm's configs, and it doesn't check aliases when a config is
+  renamed. A config no execution uses that has a declared alias ends up sharing it.
 - A temporary flow left behind by a run that was stopped is deleted on the next run if nothing uses it.
   If it is in use and no flow has the final alias, the run was stopped after it deleted the old flow:
   the next run finishes the rename and carries on. In any other case the change fails and the flow needs
@@ -195,7 +197,7 @@ An entry with `providerId` is an execution, an entry with `alias` is a sub flow.
 - alias: String, the alias of a sub flow, unique in the realm
 - requirement: Flow.Requirement = "ALTERNATIVE" | "DISABLED" | "REQUIRED" | "CONDITIONAL" | "OPTIONAL", not optional
 - priority: Integer, optional, default = the position in the list times 10
-- config: Map<String, String>, optional, executions only, default = no config
+- config: Map<String, String>, optional, executions only, default = no config. Keycloak drops empty values, so they are ignored
 - configAlias: String, optional, executions only, default = "<parent alias> <providerId>"
 - type: String = "basic-flow" | "form-flow", optional, sub flows only, default = "basic-flow"
 - provider: String, optional, sub flows only, the form provider of a "form-flow"
