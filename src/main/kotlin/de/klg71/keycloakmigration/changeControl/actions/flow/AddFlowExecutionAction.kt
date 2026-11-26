@@ -1,6 +1,7 @@
 package de.klg71.keycloakmigration.changeControl.actions.flow
 
 import de.klg71.keycloakmigration.changeControl.actions.Action
+import de.klg71.keycloakmigration.keycloakapi.addExecutionConfig
 import de.klg71.keycloakmigration.keycloakapi.addExecutionToFlow
 import de.klg71.keycloakmigration.keycloakapi.model.AuthenticatorConfig
 import de.klg71.keycloakmigration.keycloakapi.model.Flow
@@ -26,12 +27,10 @@ class AddFlowExecutionAction(
             setExecuted()
         }
 
+        // Checked: Keycloak refuses a config alias that is already taken, which used to leave the execution
+        // silently without its config. The execution is rolled back instead.
         if (config.isNotEmpty())
-            client.updateFlowExecutionWithNewConfiguration(
-                realm(),
-                executionId.toString(),
-                AuthenticatorConfig(executionAlias, config)
-            )
+            client.addExecutionConfig(realm(), executionId, AuthenticatorConfig(executionAlias, config))
     }
 
     override fun undo() {
