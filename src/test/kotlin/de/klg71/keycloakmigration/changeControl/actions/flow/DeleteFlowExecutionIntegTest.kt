@@ -5,11 +5,11 @@ import de.klg71.keycloakmigration.changeControl.actions.MigrationException
 import de.klg71.keycloakmigration.keycloakapi.KeycloakClient
 import de.klg71.keycloakmigration.keycloakapi.model.AuthenticationExecutionImport
 import de.klg71.keycloakmigration.keycloakapi.model.Flow
+import java.util.UUID
 import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.assertThatThrownBy
 import org.junit.Test
 import org.koin.core.component.inject
-import java.util.UUID
 
 class DeleteFlowExecutionIntegTest : AbstractIntegrationTest() {
 
@@ -184,5 +184,26 @@ class DeleteFlowExecutionIntegTest : AbstractIntegrationTest() {
         val deleteAction = DeleteFlowExecutionAction(testRealm, "MissingFlow", "auth-cookie")
         deleteAction.executeIt()
         deleteAction.undoIt()
+    }
+
+    // Keycloak masks config keys the provider doesn't declare, so this config can't be read back
+    private fun addFlowWithMaskedConfig(alias: String) = AddFlowAction(
+        testRealm, alias, executions = listOf(
+            AuthenticationExecutionImport(
+                UUID.randomUUID(), Flow.Requirement.REQUIRED, "idp-confirm-link", 0, 0, 10, mapOf("custom" to "value")
+            )
+        )
+    ).executeIt()
+
+    @Test
+    fun testDeleteFlowExecutionWithMaskedConfigIsRefused() {
+        val alias = "MaskedFlow"
+        addFlowWithMaskedConfig(alias)
+
+        assertThatThrownBy {
+            DeleteFlowExecutionAction(testRealm, alias, "idp-confirm-link").executeIt()
+        }.isInstanceOf(MigrationException::class.java).hasMessageContaining("can't be rolled back")
+
+        assertThat(client.flowExecutions(testRealm, alias).map { it.providerId }).containsExactly("idp-confirm-link")
     }
 }

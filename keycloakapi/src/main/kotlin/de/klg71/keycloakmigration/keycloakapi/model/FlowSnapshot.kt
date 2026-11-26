@@ -35,3 +35,20 @@ data class FlowSummary(
     val providerId: String,
     val description: String? = null
 )
+
+/**
+ * What Keycloak returns in place of a config value it hides: a secret, or a key the provider doesn't
+ * declare. The real value can't be read back.
+ */
+const val MASKED_CONFIG_VALUE = "**********"
+
+/** Whether Keycloak returned any of this config's values masked, so the config can't be recreated. */
+fun AuthenticatorConfig.hasMaskedValues() = MASKED_CONFIG_VALUE in config.values
+
+/** The configs in this tree that can't be recreated, because Keycloak returned values of theirs masked. */
+fun List<FlowNode>.maskedConfigs(): List<AuthenticatorConfig> = flatMap {
+    when (it) {
+        is ExecutionNode -> listOfNotNull(it.config?.takeIf { config -> config.hasMaskedValues() })
+        is SubFlowNode -> it.executions.maskedConfigs()
+    }
+}

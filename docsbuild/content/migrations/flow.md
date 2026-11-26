@@ -83,6 +83,9 @@ For an update of the flow `alias` use the oldAlias as `alias` and the newAlias i
 On rollback the flow's alias, description, provider and top-level flag are put back. If the executions
 were replaced, they are rebuilt as they were before the change, including sub flows with their
 requirement and priority, and authenticator configs.
+Keycloak hides some authenticator config values when they are read: secrets, and keys the provider
+doesn't declare. Those can't be recreated, so a change whose rollback would need them isn't run. Here that means the
+executions of a flow with such a value can't be replaced; its alias and description still can.
 
 ### Parameters
 - realm: String, optional
@@ -130,6 +133,9 @@ Deletes a flow, if one with this alias exists.
 
 On rollback the flow is recreated with its executions as they were before the delete, including sub
 flows with their requirement and priority, and authenticator configs.
+Keycloak hides some authenticator config values when they are read: secrets, and keys the provider
+doesn't declare. Those can't be recreated, so a change whose rollback would need them isn't run. Here that means a flow
+with such a value can't be deleted with this change.
 
 ### Parameters
 - realm: String, optional
@@ -270,6 +276,9 @@ change: if the provider matches a sub flow, the change fails without deleting an
 
 On rollback the deleted execution is added back to the flow or sub flow it came from, with its
 requirement, priority and authenticator config. The rest of the flow isn't changed.
+Keycloak hides some authenticator config values when they are read: secrets, and keys the provider
+doesn't declare. Those can't be recreated, so a change whose rollback would need them isn't run. Here that means an
+execution whose config has such a value can't be deleted with this change.
 
 ### Parameters
 - realm: String, optional

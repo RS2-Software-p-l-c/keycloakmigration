@@ -4,13 +4,10 @@ import de.klg71.keycloakmigration.changeControl.actions.Action
 import de.klg71.keycloakmigration.changeControl.actions.MigrationException
 import de.klg71.keycloakmigration.keycloakapi.addExecutionConfig
 import de.klg71.keycloakmigration.keycloakapi.addExecutionToFlow
-import de.klg71.keycloakmigration.keycloakapi.extractLocationUUID
-import de.klg71.keycloakmigration.keycloakapi.isSuccessful
-import de.klg71.keycloakmigration.keycloakapi.model.AddFlowExecution
 import de.klg71.keycloakmigration.keycloakapi.model.AuthenticationExecution
 import de.klg71.keycloakmigration.keycloakapi.model.AuthenticatorConfig
 import de.klg71.keycloakmigration.keycloakapi.model.Flow
-import de.klg71.keycloakmigration.keycloakapi.model.UpdateFlowExecution
+import de.klg71.keycloakmigration.keycloakapi.model.hasMaskedValues
 
 /**
  * Deletes the first execution with [provider] from the flow [flowAlias], at any depth.
@@ -47,11 +44,11 @@ class DeleteFlowExecutionAction(
             )
         }
 
+        val config = execution.authenticationConfig?.let { client.getAuthenticatorConfiguration(realm(), it) }
+        refuseMaskedConfigs(name(), listOfNotNull(config?.takeIf { it.hasMaskedValues() }))
+
         val removed = DeletedExecution(
-            parentAlias(executions, position),
-            execution.requirement,
-            execution.priority,
-            execution.authenticationConfig?.let { client.getAuthenticatorConfiguration(realm(), it) }
+            parentAlias(executions, position), execution.requirement, execution.priority, config
         )
         client.deleteFlowExecution(realm(), execution.id)
         deleted = removed

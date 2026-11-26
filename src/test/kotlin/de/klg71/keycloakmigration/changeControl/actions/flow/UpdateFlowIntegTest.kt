@@ -2,14 +2,15 @@ package de.klg71.keycloakmigration.changeControl.actions.flow
 
 import de.klg71.keycloakmigration.AbstractIntegrationTest
 import de.klg71.keycloakmigration.MASKED_VALUE
+import de.klg71.keycloakmigration.changeControl.actions.MigrationException
 import de.klg71.keycloakmigration.keycloakapi.KeycloakClient
 import de.klg71.keycloakmigration.keycloakapi.model.AuthenticationExecutionImport
 import de.klg71.keycloakmigration.keycloakapi.model.Flow
+import java.util.UUID
 import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.assertThatThrownBy
 import org.junit.Test
 import org.koin.core.component.inject
-import java.util.UUID
 
 class UpdateFlowIntegTest : AbstractIntegrationTest() {
 
@@ -193,5 +194,63 @@ class UpdateFlowIntegTest : AbstractIntegrationTest() {
         }
 
         assertThat(steps(alias)).isEqualTo(before)
+    }
+
+    // Keycloak masks config keys the provider doesn't declare, so this config can't be read back
+    private fun addFlowWithMaskedConfig(alias: String) = AddFlowAction(
+        testRealm, alias, executions = listOf(
+            AuthenticationExecutionImport(
+                UUID.randomUUID(), Flow.Requirement.REQUIRED, "idp-confirm-link", 0, 0, 10, mapOf("custom" to "value")
+            )
+        )
+    ).executeIt()
+
+    @Test
+    fun testReplacingExecutionsWithMaskedConfigIsRefused() {
+        val alias = "MaskedFlow"
+        addFlowWithMaskedConfig(alias)
+        val ids = client.flowExecutions(testRealm, alias).map { it.id }
+
+        assertThatThrownBy {
+            UpdateFlowAction(
+                testRealm, alias, executions = listOf(
+                    AuthenticationExecutionImport(
+                        UUID.randomUUID(), Flow.Requirement.REQUIRED, "idp-auto-link", 0, 0, 10
+                    )
+                )
+            ).executeIt()
+        }.isInstanceOf(MigrationException::class.java).hasMessageContaining("can't be rolled back")
+
+        assertThat(client.flowExecutions(testRealm, alias).map { it.id }).isEqualTo(ids)
+    }
+
+    @Test
+    fun testUpdatingOnlyTheFlowWithMaskedConfigIsAllowed() {
+        val alias = "MaskedFlow"
+        addFlowWithMaskedConfig(alias)
+
+        UpdateFlowAction(testRealm, alias, description = "changed").executeIt()
+
+        assertThat(client.flows(testRealm).single { it.alias == alias }.description).isEqualTo("changed")
+    }
+
+    @Test
+    fun testFailedFlowUpdateLeavesExecutionsAlone() {
+        val alias = "RenameFails"
+        addNestedFlow(alias)
+        AddFlowAction(testRealm, "TakenAlias").executeIt()
+        val ids = client.flowExecutions(testRealm, alias).map { it.id }
+
+        assertThatThrownBy {
+            UpdateFlowAction(
+                testRealm, alias, newAlias = "TakenAlias", executions = listOf(
+                    AuthenticationExecutionImport(
+                        UUID.randomUUID(), Flow.Requirement.REQUIRED, "idp-auto-link", 0, 0, 10
+                    )
+                )
+            ).executeIt()
+        }
+
+        assertThat(client.flowExecutions(testRealm, alias).map { it.id }).isEqualTo(ids)
     }
 }

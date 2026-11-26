@@ -1,13 +1,15 @@
 package de.klg71.keycloakmigration.changeControl.actions.flow
 
 import de.klg71.keycloakmigration.AbstractIntegrationTest
+import de.klg71.keycloakmigration.changeControl.actions.MigrationException
 import de.klg71.keycloakmigration.keycloakapi.KeycloakClient
 import de.klg71.keycloakmigration.keycloakapi.model.AuthenticationExecutionImport
 import de.klg71.keycloakmigration.keycloakapi.model.Flow
+import java.util.UUID
 import org.assertj.core.api.Assertions.assertThat
+import org.assertj.core.api.Assertions.assertThatThrownBy
 import org.junit.Test
 import org.koin.core.component.inject
-import java.util.UUID
 
 class DeleteFlowIntegTest : AbstractIntegrationTest() {
 
@@ -93,5 +95,25 @@ class DeleteFlowIntegTest : AbstractIntegrationTest() {
             .single { it.providerId == "identity-provider-redirector" }
         val config = client.getAuthenticatorConfiguration(testRealm, redirector.authenticationConfig!!)
         assertThat(config.config).isEqualTo(mapOf("defaultProvider" to "some-idp"))
+    }
+
+    // Keycloak masks config keys the provider doesn't declare, so this config can't be read back
+    private fun addFlowWithMaskedConfig(alias: String) = AddFlowAction(
+        testRealm, alias, executions = listOf(
+            AuthenticationExecutionImport(
+                UUID.randomUUID(), Flow.Requirement.REQUIRED, "idp-confirm-link", 0, 0, 10, mapOf("custom" to "value")
+            )
+        )
+    ).executeIt()
+
+    @Test
+    fun testDeleteFlowWithMaskedConfigIsRefused() {
+        val alias = "MaskedFlow"
+        addFlowWithMaskedConfig(alias)
+
+        assertThatThrownBy { DeleteFlowAction(testRealm, alias).executeIt() }
+            .isInstanceOf(MigrationException::class.java).hasMessageContaining("can't be rolled back")
+
+        assertThat(client.flows(testRealm).any { it.alias == alias }).isTrue
     }
 }
