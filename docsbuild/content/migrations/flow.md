@@ -76,8 +76,13 @@ changes:
 ```
 ## UpdateFlow
 Updates an authentication flow in place.
-Only updates provided values.
+Only updates provided values. Without `executions` the flow's executions, sub flows included, are left
+unchanged. With `executions` they replace all of the flow's executions.
 For an update of the flow `alias` use the oldAlias as `alias` and the newAlias in `newAlias`.
+
+On rollback the flow's alias, description, provider and top-level flag are put back. If the executions
+were replaced, they are rebuilt as they were before the change, including sub flows with their
+requirement and priority, and authenticator configs.
 
 ### Parameters
 - realm: String, optional

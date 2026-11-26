@@ -6,6 +6,7 @@ import de.klg71.keycloakmigration.keycloakapi.KeycloakClient
 import de.klg71.keycloakmigration.keycloakapi.model.AuthenticationExecutionImport
 import de.klg71.keycloakmigration.keycloakapi.model.Flow
 import org.assertj.core.api.Assertions.assertThat
+import org.assertj.core.api.Assertions.assertThatThrownBy
 import org.junit.Test
 import org.koin.core.component.inject
 import java.util.UUID
@@ -89,4 +90,108 @@ class UpdateFlowIntegTest : AbstractIntegrationTest() {
         assertThat(oldFlow.description).isEqualTo(originalDescription)
     }
 
+    private data class Step(val name: String, val level: Int, val requirement: Flow.Requirement, val priority: Int)
+
+    private fun steps(alias: String) = client.flowExecutions(testRealm, alias).map {
+        Step(it.providerId ?: it.displayName, it.level, it.requirement, it.priority)
+    }
+
+    private fun redirectorConfig(alias: String) = client.flowExecutions(testRealm, alias)
+        .single { it.providerId == "identity-provider-redirector" }
+        .let { client.getAuthenticatorConfiguration(testRealm, it.authenticationConfig!!) }
+
+    // A flow with a top-level execution, a sub flow holding a nested sub flow, and a configured execution
+    private fun addNestedFlow(alias: String) {
+        AddFlowAction(
+            testRealm, alias, "Nested", executions = listOf(
+                AuthenticationExecutionImport(UUID.randomUUID(), Flow.Requirement.ALTERNATIVE, "auth-cookie", 0, 0, 10)
+            )
+        ).executeIt()
+        AddSubFlowAction(
+            testRealm, alias, "$alias Forms", description = "the forms", requirement = Flow.Requirement.ALTERNATIVE,
+            priority = 20, executions = listOf(
+                AuthenticationExecutionImport(
+                    UUID.randomUUID(), Flow.Requirement.ALTERNATIVE, "identity-provider-redirector", 1, 0, 10,
+                    mapOf("defaultProvider" to "some-idp")
+                ),
+                AuthenticationExecutionImport(
+                    UUID.randomUUID(), Flow.Requirement.REQUIRED, "auth-username-password-form", 1, 1, 20
+                )
+            )
+        ).executeIt()
+        AddSubFlowAction(
+            testRealm, "$alias Forms", "$alias MFA", requirement = Flow.Requirement.CONDITIONAL, priority = 30,
+            executions = listOf(
+                AuthenticationExecutionImport(
+                    UUID.randomUUID(), Flow.Requirement.REQUIRED, "conditional-user-configured", 2, 0, 10
+                ),
+                AuthenticationExecutionImport(
+                    UUID.randomUUID(), Flow.Requirement.ALTERNATIVE, "auth-otp-form", 2, 1, 20
+                )
+            )
+        ).executeIt()
+    }
+
+    @Test
+    fun testUpdateFlowWithoutExecutionsKeepsSubFlows() {
+        val alias = "KeepNested"
+        addNestedFlow(alias)
+        val before = steps(alias)
+
+        UpdateFlowAction(testRealm, alias, description = "new description").executeIt()
+
+        assertThat(client.flows(testRealm).first { it.alias == alias }.description).isEqualTo("new description")
+        assertThat(steps(alias)).isEqualTo(before)
+    }
+
+    @Test
+    fun testUpdateFlowRollbackRestoresSubFlows() {
+        val alias = "RestoreNested"
+        val newAlias = "RestoreNestedRenamed"
+        addNestedFlow(alias)
+        val before = steps(alias)
+
+        val action = UpdateFlowAction(
+            testRealm, alias, newAlias, "Replaced", executions = listOf(
+                AuthenticationExecutionImport(UUID.randomUUID(), Flow.Requirement.REQUIRED, "idp-auto-link", 0, 0, 10)
+            )
+        )
+        action.executeIt()
+        assertThat(steps(newAlias).map { it.name }).containsExactly("idp-auto-link")
+
+        action.undoIt()
+
+        assertThat(client.flows(testRealm).single { it.alias == alias }.description).isEqualTo("Nested")
+        assertThat(client.flows(testRealm).none { it.alias == newAlias }).isTrue
+        assertThat(steps(alias)).isEqualTo(before)
+        assertThat(client.flowExecutions(testRealm, "$alias MFA").map { it.providerId })
+            .containsExactly("conditional-user-configured", "auth-otp-form")
+        val forms = client.flowExecutions(testRealm, alias).single { it.displayName == "$alias Forms" }
+        assertThat(forms.description).isEqualTo("the forms")
+        val config = redirectorConfig(alias)
+        assertThat(config.alias).isEqualTo("identity-provider-redirector_config")
+        assertThat(config.config).isEqualTo(mapOf("defaultProvider" to "some-idp"))
+    }
+
+    @Test
+    fun testUpdateFlowFailureRollsBack() {
+        val alias = "FailNested"
+        addNestedFlow(alias)
+        val before = steps(alias)
+
+        assertThatThrownBy {
+            UpdateFlowAction(
+                testRealm, alias, executions = listOf(
+                    AuthenticationExecutionImport(
+                        UUID.randomUUID(), Flow.Requirement.REQUIRED, "auth-cookie", 0, 0, 10
+                    ),
+                    AuthenticationExecutionImport(
+                        UUID.randomUUID(), Flow.Requirement.REQUIRED, "no-such-provider", 0, 1, 20
+                    )
+                )
+            ).executeIt()
+        }
+
+        assertThat(steps(alias)).isEqualTo(before)
+    }
 }
