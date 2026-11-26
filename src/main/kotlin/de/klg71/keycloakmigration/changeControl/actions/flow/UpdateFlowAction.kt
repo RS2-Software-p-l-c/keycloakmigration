@@ -6,6 +6,7 @@ import de.klg71.keycloakmigration.keycloakapi.flowSnapshot
 import de.klg71.keycloakmigration.keycloakapi.model.AuthenticationExecutionImport
 import de.klg71.keycloakmigration.keycloakapi.model.Flow
 import de.klg71.keycloakmigration.keycloakapi.model.FlowNode
+import de.klg71.keycloakmigration.keycloakapi.model.maskedConfigs
 import de.klg71.keycloakmigration.keycloakapi.model.UpdateFlow
 import de.klg71.keycloakmigration.keycloakapi.replaceFlowExecutions
 import de.klg71.keycloakmigration.keycloakapi.restoreFlowSnapshot
@@ -30,10 +31,12 @@ class UpdateFlowAction(
 
     private var oldFlow: Flow? = null
     private var oldExecutions: List<FlowNode>? = null
+    private var executionsReplaced = false
 
     override fun execute() {
         val flow = client.flows(realm()).firstOrNull { it.alias == alias } ?: return
         oldExecutions = executions?.let { client.flowSnapshot(realm(), alias) }
+        refuseMaskedConfigs(name(), oldExecutions?.maskedConfigs().orEmpty())
         oldFlow = flow
 
         // Replacing the executions takes several calls, so undo has to run if one of them fails
@@ -48,7 +51,10 @@ class UpdateFlowAction(
                 description ?: flow.description
             )
         )
-        executions?.let { client.replaceFlowExecutions(realm(), newAlias ?: flow.alias, it) }
+        executions?.let {
+            executionsReplaced = true
+            client.replaceFlowExecutions(realm(), newAlias ?: flow.alias, it)
+        }
     }
 
     override fun undo() {
@@ -59,7 +65,8 @@ class UpdateFlowAction(
         client.updateFlow(
             realm(), flow.id, UpdateFlow(flow.id, flow.alias, flow.providerId, flow.topLevel, flow.description)
         )
-        oldExecutions?.let {
+        // Only rebuild executions that were touched: a failed flow update leaves them as they were
+        oldExecutions?.takeIf { executionsReplaced }?.let {
             client.clearFlowExecutions(realm(), flow.alias)
             client.restoreFlowSnapshot(realm(), flow.alias, it)
         }

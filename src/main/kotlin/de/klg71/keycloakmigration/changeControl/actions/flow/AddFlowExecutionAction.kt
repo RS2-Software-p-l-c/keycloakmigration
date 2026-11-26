@@ -20,7 +20,11 @@ class AddFlowExecutionAction(
     private lateinit var executionId: UUID
 
     override fun execute() {
-        executionId = client.addExecutionToFlow(realm(), flowAlias, provider, requirement, priority)
+        // Marked executed as soon as the execution exists, so it is rolled back if a later call fails
+        client.addExecutionToFlow(realm(), flowAlias, provider, requirement, priority) {
+            executionId = it
+            setExecuted()
+        }
 
         if (config.isNotEmpty())
             client.updateFlowExecutionWithNewConfiguration(

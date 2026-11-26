@@ -103,11 +103,17 @@ private fun KeycloakClient.addExecution(
     flowAlias: String,
     executionImport: AuthenticationExecutionImport
 ) {
-    val executionId = addExecutionToFlow(
-        realm, flowAlias, executionImport.providerId, executionImport.requirement, executionImport.priority
+    // addFlow and updateFlow have never checked these two responses, and keep not checking them: a
+    // requirement or priority Keycloak rejects is left at its default, and the config, named after the
+    // provider and created even when empty, is missing when another config already has that alias
+    val executionId =
+        addFlowExecution(realm, flowAlias, AddFlowExecution(executionImport.providerId)).extractLocationUUID()
+    updateFlowExecution(
+        realm, flowAlias, UpdateFlowExecution(
+            executionId, executionImport.requirement, executionImport.level, executionImport.index,
+            executionImport.priority, executionImport.providerId
+        )
     )
-    // Unchecked, as before: an execution imported this way always gets a config named after its provider,
-    // even an empty one, and a second one with the same alias is left without it
     updateFlowExecutionWithNewConfiguration(
         realm, executionId.toString(), AuthenticatorConfig(
             executionImport.providerId + "_config",
@@ -222,15 +228,19 @@ fun KeycloakClient.createFlowFromSnapshot(realm: String, flow: AddFlow, nodes: L
 /**
  * Adds an execution of [providerId] to the flow (or sub flow) [flowAlias] and returns its id. A
  * [requirement] or [priority] that is given replaces Keycloak's default for a new execution.
+ * [onCreated] gets the id as soon as the execution exists, before the call that can still fail after it.
  */
+@Suppress("LongParameterList")
 fun KeycloakClient.addExecutionToFlow(
     realm: String,
     flowAlias: String,
     providerId: String?,
     requirement: Flow.Requirement? = null,
-    priority: Int? = null
+    priority: Int? = null,
+    onCreated: (UUID) -> Unit = {}
 ): UUID {
     val executionId = addFlowExecution(realm, flowAlias, AddFlowExecution(providerId)).extractLocationUUID()
+    onCreated(executionId)
     setRequirementAndPriority(realm, flowAlias, executionId, requirement, priority)
     return executionId
 }
@@ -292,7 +302,8 @@ private fun KeycloakClient.setRequirementAndPriority(
     priority: Int?
 ) {
     if (requirement == null && priority == null) return
-    val execution = flowExecutions(realm, flowAlias).first { it.id == executionId }
+    val execution = flowExecutions(realm, flowAlias).firstOrNull { it.id == executionId }
+        ?: throw KeycloakApiException("Execution $executionId was added but not found in $flowAlias")
     updateFlowExecution(
         realm, flowAlias, UpdateFlowExecution(
             executionId, requirement ?: execution.requirement, execution.level, execution.index,

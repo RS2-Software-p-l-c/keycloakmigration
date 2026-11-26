@@ -6,6 +6,7 @@ import de.klg71.keycloakmigration.keycloakapi.flowSnapshot
 import de.klg71.keycloakmigration.keycloakapi.model.AddFlow
 import de.klg71.keycloakmigration.keycloakapi.model.Flow
 import de.klg71.keycloakmigration.keycloakapi.model.FlowNode
+import de.klg71.keycloakmigration.keycloakapi.model.maskedConfigs
 
 /**
  * Deletes a flow, if one with this alias exists.
@@ -24,6 +25,7 @@ class DeleteFlowAction(
     override fun execute() {
         val flow = client.flows(realm()).firstOrNull { it.alias == alias } ?: return
         oldExecutions = client.flowSnapshot(realm(), alias)
+        refuseMaskedConfigs(name(), oldExecutions.maskedConfigs())
         client.deleteFlow(realm(), flow.id)
         oldFlow = flow
     }
