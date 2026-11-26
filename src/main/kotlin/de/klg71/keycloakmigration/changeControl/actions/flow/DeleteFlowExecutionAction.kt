@@ -3,6 +3,7 @@ package de.klg71.keycloakmigration.changeControl.actions.flow
 import de.klg71.keycloakmigration.changeControl.actions.Action
 import de.klg71.keycloakmigration.changeControl.actions.MigrationException
 import de.klg71.keycloakmigration.keycloakapi.addExecutionConfig
+import de.klg71.keycloakmigration.keycloakapi.addExecutionToFlow
 import de.klg71.keycloakmigration.keycloakapi.extractLocationUUID
 import de.klg71.keycloakmigration.keycloakapi.isSuccessful
 import de.klg71.keycloakmigration.keycloakapi.model.AddFlowExecution
@@ -26,8 +27,6 @@ class DeleteFlowExecutionAction(
     private class DeletedExecution(
         val parentAlias: String,
         val requirement: Flow.Requirement,
-        val level: Int,
-        val index: Int,
         val priority: Int,
         val config: AuthenticatorConfig?
     )
@@ -51,8 +50,6 @@ class DeleteFlowExecutionAction(
         val removed = DeletedExecution(
             parentAlias(executions, position),
             execution.requirement,
-            execution.level,
-            execution.index,
             execution.priority,
             execution.authenticationConfig?.let { client.getAuthenticatorConfiguration(realm(), it) }
         )
@@ -75,20 +72,9 @@ class DeleteFlowExecutionAction(
 
     override fun undo() {
         val execution = deleted ?: return
-        val executionId = client.addFlowExecution(
-            realm(), execution.parentAlias, AddFlowExecution(provider)
-        ).extractLocationUUID()
-        client.updateFlowExecution(
-            realm(), execution.parentAlias, UpdateFlowExecution(
-                executionId, execution.requirement, execution.level, execution.index, execution.priority, provider
-            )
-        ).run {
-            if (!isSuccessful())
-                throw MigrationException(
-                    "Failed to restore requirement/priority of flow execution $provider in ${execution.parentAlias}. " +
-                        "Status: ${status()}, Reason: ${reason()}"
-                )
-        }
+        val executionId = client.addExecutionToFlow(
+            realm(), execution.parentAlias, provider, execution.requirement, execution.priority
+        )
         execution.config?.let { client.addExecutionConfig(realm(), executionId, it) }
         deleted = null
     }

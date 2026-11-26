@@ -1,12 +1,11 @@
 package de.klg71.keycloakmigration.changeControl.actions.flow
 
 import de.klg71.keycloakmigration.changeControl.actions.Action
-import de.klg71.keycloakmigration.keycloakapi.extractLocationUUID
+import de.klg71.keycloakmigration.keycloakapi.createFlowFromSnapshot
 import de.klg71.keycloakmigration.keycloakapi.flowSnapshot
 import de.klg71.keycloakmigration.keycloakapi.model.AddFlow
 import de.klg71.keycloakmigration.keycloakapi.model.Flow
 import de.klg71.keycloakmigration.keycloakapi.model.FlowNode
-import de.klg71.keycloakmigration.keycloakapi.restoreFlowSnapshot
 
 /**
  * Deletes a flow, if one with this alias exists.
@@ -31,10 +30,9 @@ class DeleteFlowAction(
 
     override fun undo() {
         val flow = oldFlow ?: return
-        client.addFlow(
-            realm(), AddFlow(flow.alias, flow.builtIn, flow.description, flow.providerId, flow.topLevel)
-        ).extractLocationUUID()
-        client.restoreFlowSnapshot(realm(), flow.alias, oldExecutions)
+        client.createFlowFromSnapshot(
+            realm(), AddFlow(flow.alias, flow.builtIn, flow.description, flow.providerId, flow.topLevel), oldExecutions
+        )
         oldFlow = null
     }
 
