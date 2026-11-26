@@ -15,6 +15,7 @@ import de.klg71.keycloakmigration.keycloakapi.model.Flow.Requirement.ALTERNATIVE
 import de.klg71.keycloakmigration.keycloakapi.model.Flow.Requirement.CONDITIONAL
 import de.klg71.keycloakmigration.keycloakapi.model.Flow.Requirement.REQUIRED
 import de.klg71.keycloakmigration.keycloakapi.model.FlowNode
+import de.klg71.keycloakmigration.keycloakapi.model.UpdateFlow
 import de.klg71.keycloakmigration.keycloakapi.model.addKeycloakIdentityProvider
 import org.assertj.core.api.Assertions.assertThat
 import org.assertj.core.api.Assertions.assertThatThrownBy
@@ -303,5 +304,60 @@ class ReplaceFlowIntegTest : AbstractIntegrationTest() {
             .single { it.providerId == "identity-provider-redirector" }
         assertThat(client.getAuthenticatorConfiguration(testRealm, redirector.authenticationConfig!!).alias)
             .isEqualTo("default idp")
+    }
+
+    @Test
+    fun testRunStoppedAfterDeletingTheOldFlowIsFinished() {
+        // As a run leaves it when stopped between deleting the old flow and renaming the new one
+        replace().executeIt()
+        val flowId = flow()!!.id
+        client.updateRealmRepresentation(testRealm, mapOf("browserFlow" to alias))
+        val temporaryAlias = "$alias replacing-0123abcd"
+        client.updateFlow(
+            testRealm, flowId, UpdateFlow(flowId, temporaryAlias, "basic-flow", true, "Browser login with MFA")
+        )
+        assertThat(client.realmRepresentation(testRealm)["browserFlow"]).isEqualTo("$alias replacing-0123abcd")
+
+        replace().executeIt()
+
+        assertThat(flow()!!.id).isEqualTo(flowId)
+        assertThat(client.realmRepresentation(testRealm)["browserFlow"]).isEqualTo(alias)
+        assertThat(temporaryFlows()).isEmpty()
+        assertThat(matches(tree())).isTrue
+    }
+
+    @Test
+    fun testSubFlowAliasUsedElsewhereIsRefused() {
+        addOldFlow()
+        val before = client.flowSnapshot(testRealm, alias)
+        AddFlowAction(testRealm, "Other").executeIt()
+        AddSubFlowAction(testRealm, "Other", "$alias - MFA").executeIt()
+
+        assertThatThrownBy { replace().executeIt() }
+            .isInstanceOf(MigrationException::class.java)
+            .hasMessageContaining("'$alias - MFA'")
+            .hasMessageContaining("already used")
+
+        assertThat(client.flowSnapshot(testRealm, alias)).isEqualTo(before)
+        assertThat(temporaryFlows()).isEmpty()
+    }
+
+    @Test
+    fun testOldFlowWithMaskedConfigIsRefused() {
+        // Keycloak masks config keys the provider doesn't declare, so the old flow couldn't be rebuilt
+        AddFlowAction(
+            testRealm, alias, "old", executions = listOf(
+                AuthenticationExecutionImport(
+                    UUID.randomUUID(), REQUIRED, "idp-confirm-link", 0, 0, 10, mapOf("custom" to "value")
+                )
+            )
+        ).executeIt()
+        val before = client.flowSnapshot(testRealm, alias)
+
+        assertThatThrownBy { replace().executeIt() }
+            .isInstanceOf(MigrationException::class.java)
+            .hasMessageContaining("can't be rolled back")
+
+        assertThat(client.flowSnapshot(testRealm, alias)).isEqualTo(before)
     }
 }

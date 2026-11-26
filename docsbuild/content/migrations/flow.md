@@ -171,10 +171,16 @@ If no flow has this alias, it is created.
   the old flow is deleted, and the new flow, its sub flows and its configs get their final aliases.
 - **Rollback** puts the old flow back as it was, with everything that used it.
 - Built-in flows can't be replaced.
-- Keycloak masks some config values when they are read. Those can't be compared, so they count as
-  equal: changing only such a value doesn't trigger a replacement.
-- A temporary flow left behind by a run that was stopped is deleted on the next run. If something still
-  uses it, the change fails and the flow needs to be looked at.
+- Keycloak masks some config values when they are read: secrets, and keys the provider doesn't declare.
+  Those can't be compared, so they count as equal: changing only such a value doesn't trigger a
+  replacement. They can't be recreated either, so a flow whose configs have such values isn't replaced:
+  a rollback couldn't rebuild it.
+- Sub flow and config aliases are unique in the realm. If another flow already uses one of the declared
+  aliases, the change fails before anything changes.
+- A temporary flow left behind by a run that was stopped is deleted on the next run if nothing uses it.
+  If it is in use and no flow has the final alias, the run was stopped after it deleted the old flow:
+  the next run finishes the rename and carries on. In any other case the change fails and the flow needs
+  to be looked at.
 
 ### Parameters
 - realm: String, optional

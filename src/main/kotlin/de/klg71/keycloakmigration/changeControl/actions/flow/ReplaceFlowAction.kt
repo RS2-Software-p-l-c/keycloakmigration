@@ -7,11 +7,14 @@ import de.klg71.keycloakmigration.keycloakapi.flowBindings
 import de.klg71.keycloakmigration.keycloakapi.flowSnapshot
 import de.klg71.keycloakmigration.keycloakapi.isSuccessful
 import de.klg71.keycloakmigration.keycloakapi.model.AddFlow
+import de.klg71.keycloakmigration.keycloakapi.model.AuthenticationExecution
 import de.klg71.keycloakmigration.keycloakapi.model.AuthenticatorConfig
 import de.klg71.keycloakmigration.keycloakapi.model.ExecutionNode
 import de.klg71.keycloakmigration.keycloakapi.model.Flow
 import de.klg71.keycloakmigration.keycloakapi.model.FlowBinding
 import de.klg71.keycloakmigration.keycloakapi.model.FlowNode
+import de.klg71.keycloakmigration.keycloakapi.model.MASKED_CONFIG_VALUE
+import de.klg71.keycloakmigration.keycloakapi.model.maskedConfigs
 import de.klg71.keycloakmigration.keycloakapi.model.SubFlowNode
 import de.klg71.keycloakmigration.keycloakapi.model.UpdateFlow
 import de.klg71.keycloakmigration.keycloakapi.moveFlowBinding
@@ -51,9 +54,10 @@ class ReplaceFlowAction(
 
     override fun execute() {
         validateFlowEntries(alias, executions)
-        val existing = client.flows(realm()).firstOrNull { it.alias == alias }
+        val existing = handleLeftOverTemporaryFlows(client.flows(realm()).firstOrNull { it.alias == alias })
 
         if (existing == null) {
+            refuseTakenAliases(null)
             setExecuted()
             build(alias, desired)
             return
@@ -69,7 +73,9 @@ class ReplaceFlowAction(
             return
         }
 
-        removeLeftOverTemporaryFlows()
+        // Checked before anything changes: undo rebuilds the old flow from this snapshot
+        refuseMaskedConfigs(name(), snapshot.maskedConfigs())
+        refuseTakenAliases(existing)
         oldFlow = existing
         oldExecutions = snapshot
         // From here on the realm changes in several steps, so undo has to run if one of them fails
@@ -103,22 +109,80 @@ class ReplaceFlowAction(
     }
 
     /**
-     * Deletes flows left over from an earlier run that was stopped without a rollback. One that something
-     * still uses needs a person to look at it.
+     * Deals with flows left over from an earlier run that was stopped without a rollback, and returns the
+     * flow to replace.
+     *
+     * A left-over flow nothing uses is deleted. One that is in use while no flow has the final alias is
+     * from a run stopped after it deleted the old flow: its rename is finished, and it becomes the flow
+     * to replace. That repair isn't undone on rollback. Any other left-over flow in use needs a person to
+     * look at it.
      */
-    private fun removeLeftOverTemporaryFlows() {
+    private fun handleLeftOverTemporaryFlows(existing: Flow?): Flow? {
+        var flow = existing
         client.flows(realm())
             .filter { it.alias.startsWith(alias) && TEMPORARY_SUFFIX.matches(it.alias.removePrefix(alias)) }
             .forEach {
-                if (client.flowBindings(realm(), it.alias, it.id).isNotEmpty()) {
-                    throw MigrationException(
+                when {
+                    client.flowBindings(realm(), it.alias, it.id).isEmpty() -> {
+                        LOG.warn("Deleting flow ${it.alias}, left over from an earlier replaceFlow of $alias")
+                        client.deleteFlow(realm(), it.id)
+                    }
+
+                    flow == null -> {
+                        LOG.warn("Finishing the rename of flow ${it.alias}, left over from an earlier replaceFlow")
+                        renameTree(it.id, toTemporary = false)
+                        flow = client.flows(realm()).first { adopted -> adopted.id == it.id }
+                    }
+
+                    else -> throw MigrationException(
                         "Flow ${it.alias} is left over from an earlier replaceFlow of $alias and is still in use. " +
                             "Move what uses it to the right flow, then run the migration again."
                     )
                 }
-                LOG.warn("Deleting flow ${it.alias}, left over from an earlier replaceFlow of $alias")
-                client.deleteFlow(realm(), it.id)
             }
+        return flow
+    }
+
+    /**
+     * Refuses a tree whose sub flow or config aliases another flow already uses. Keycloak keeps both
+     * unique in the realm, so the final rename would fail only after the old flow is gone.
+     */
+    private fun refuseTakenAliases(existing: Flow?) {
+        takenAlias(existing)?.let {
+            throw MigrationException("$it in the replaceFlow tree of $alias is already used elsewhere in the realm")
+        }
+    }
+
+    private fun takenAlias(existing: Flow?): String? {
+        val subFlowAliases = desired.subFlows().map { it.alias }.toSet()
+        val configAliases = desired.configs().mapNotNull { it.alias }.toSet()
+
+        return client.flows(realm()).asSequence()
+            .filter { it.id != existing?.id }
+            .flatMap { flow ->
+                val topLevel = "Sub flow alias '${flow.alias}' (a top-level flow)"
+                    .takeIf { flow.alias in subFlowAliases }
+                sequenceOf(topLevel) +
+                    client.flowExecutions(realm(), flow.alias).asSequence()
+                        .map { usedAlias(it, flow.alias, subFlowAliases, configAliases) }
+            }
+            .filterNotNull()
+            .firstOrNull()
+    }
+
+    private fun usedAlias(
+        execution: AuthenticationExecution,
+        flowAlias: String,
+        subFlowAliases: Set<String>,
+        configAliases: Set<String>
+    ): String? = if (execution.authenticationFlow) {
+        "Sub flow alias '${execution.displayName}' (in flow $flowAlias)"
+            .takeIf { execution.displayName in subFlowAliases }
+    } else {
+        execution.authenticationConfig
+            ?.let { client.getAuthenticatorConfiguration(realm(), it).alias }
+            ?.takeIf { it in configAliases }
+            ?.let { "Config alias '$it' (in flow $flowAlias)" }
     }
 
     private fun List<FlowNode>.withSuffix(): List<FlowNode> = map {
@@ -179,6 +243,12 @@ class ReplaceFlowAction(
         if (configAlias == currentAlias) return
 
         val values = declaredConfigs[target(currentAlias, toTemporary = false)] ?: config.config
+        if (MASKED_CONFIG_VALUE in values.values) {
+            throw MigrationException(
+                "Authenticator config $currentAlias can't be renamed: Keycloak hides some of its values and the " +
+                    "replaceFlow tree doesn't declare them"
+            )
+        }
         client.updateAuthenticatorConfiguration(
             realm(), configId, AuthenticatorConfig(configAlias, values, UUID.fromString(configId))
         ).run {

@@ -3,9 +3,8 @@ package de.klg71.keycloakmigration.changeControl.actions.flow
 import de.klg71.keycloakmigration.keycloakapi.model.AuthenticatorConfig
 import de.klg71.keycloakmigration.keycloakapi.model.ExecutionNode
 import de.klg71.keycloakmigration.keycloakapi.model.FlowNode
+import de.klg71.keycloakmigration.keycloakapi.model.MASKED_CONFIG_VALUE
 import de.klg71.keycloakmigration.keycloakapi.model.SubFlowNode
-
-private const val MASKED_VALUE = "**********"
 
 /**
  * Whether the [actual] tree read from the realm is the [desired] tree. Keycloak lists executions by
@@ -44,5 +43,5 @@ private fun configMatches(desired: AuthenticatorConfig?, actual: AuthenticatorCo
     actual == null -> false
     else -> actual.alias == desired.alias &&
         actual.config.keys == desired.config.keys &&
-        desired.config.all { (key, value) -> actual.config[key] == value || actual.config[key] == MASKED_VALUE }
+        desired.config.all { (key, value) -> actual.config[key] == value || actual.config[key] == MASKED_CONFIG_VALUE }
 }
