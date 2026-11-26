@@ -28,7 +28,8 @@ class UpdateFlowIntegTest : AbstractIntegrationTest() {
                     0,
                     0,
                     0,
-                    mapOf("foo" to "bar")
+                    // No undeclared config keys: Keycloak masks them, and updateFlow refuses to replace those
+                    mapOf()
                 )
             )
         ).executeIt()
@@ -68,7 +69,8 @@ class UpdateFlowIntegTest : AbstractIntegrationTest() {
                     0,
                     0,
                     0,
-                    mapOf("foo" to "bar")
+                    // No undeclared config keys: Keycloak masks them, and updateFlow refuses to replace those
+                    mapOf()
                 )
             )
         ).executeIt()
