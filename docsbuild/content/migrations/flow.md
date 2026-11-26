@@ -184,7 +184,7 @@ Adds a flow execution
 - realm: String, optional
 - flowAlias: String, not optional
 - provider: String, not optional
-- executionAlias: String, not optional
+- executionAlias: String, not optional, the alias of the execution's config; config aliases are unique in the realm, and the change fails (and is rolled back) if it is taken
 - config: Map<String, String>, optional, default = empty
 - requirement: Flow.Requirement = "ALTERNATIVE" | "DISABLED" | "REQUIRED" | "CONDITIONAL" | "OPTIONAL", optional, default = no update
 - priority: Integer, optional, default = no update
