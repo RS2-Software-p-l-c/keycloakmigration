@@ -19,6 +19,7 @@ Currently we implemented migration actions for the following resources:
 - [RequiredActions]({{< ref "/migrations/requiredactions.md" >}})
 - [Localization]({{< ref "/migrations/localization.md" >}})
 - [Organization]({{< ref "/migrations/organization.md" >}})
+- [Workflow]({{< ref "/migrations/workflow.md" >}})
 
 For more examples see `src/test/resources/changesets`.
 

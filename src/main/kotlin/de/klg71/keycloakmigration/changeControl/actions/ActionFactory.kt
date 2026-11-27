@@ -75,6 +75,7 @@ import de.klg71.keycloakmigration.changeControl.actions.realm.localization.AddLo
 import de.klg71.keycloakmigration.changeControl.actions.realm.localization.DeleteLocalizationEntryAction
 import de.klg71.keycloakmigration.changeControl.actions.realm.localization.UpdateLocalizationEntryAction
 import de.klg71.keycloakmigration.changeControl.actions.realm.profile.AddRealmProfileAttributeAction
+import de.klg71.keycloakmigration.changeControl.actions.realm.profile.DeleteRealmProfileAttributeAction
 import de.klg71.keycloakmigration.changeControl.actions.realm.profile.AddRealmProfileAttributeGroupAction
 import de.klg71.keycloakmigration.changeControl.actions.realm.profile.UpdateRealmProfileAttributeAction
 import de.klg71.keycloakmigration.changeControl.actions.realm.profile.UpdateRealmProfileOrderAction
@@ -101,6 +102,9 @@ import de.klg71.keycloakmigration.changeControl.actions.userfederation.mapper.Ad
 import de.klg71.keycloakmigration.changeControl.actions.userfederation.mapper.AddAdLdapMapperAction
 import de.klg71.keycloakmigration.changeControl.actions.userfederation.mapper.AddAdLdapUserAccountControlMapperAction
 import de.klg71.keycloakmigration.changeControl.actions.userfederation.mapper.AddAdLdapUserAttributeMapperAction
+import de.klg71.keycloakmigration.changeControl.actions.workflow.AddWorkflowAction
+import de.klg71.keycloakmigration.changeControl.actions.workflow.DeleteWorkflowAction
+import de.klg71.keycloakmigration.changeControl.actions.workflow.UpdateWorkflowAction
 
 class ActionFactory(private val objectMapper: ObjectMapper) {
 
@@ -234,6 +238,7 @@ class ActionFactory(private val objectMapper: ObjectMapper) {
             "addRealmProfileAttribute" -> objectMapper.readValue<AddRealmProfileAttributeAction>(actionJson)
             "updateRealmProfileAttribute" -> objectMapper.readValue<UpdateRealmProfileAttributeAction>(actionJson)
             "updateRealmProfileOrder" -> objectMapper.readValue<UpdateRealmProfileOrderAction>(actionJson)
+            "deleteRealmProfileAttribute" -> objectMapper.readValue<DeleteRealmProfileAttributeAction>(actionJson)
 
             "addLocalizationEntry" -> objectMapper.readValue<AddLocalizationEntryAction>(actionJson)
             "updateLocalizationEntry" -> objectMapper.readValue<UpdateLocalizationEntryAction>(actionJson)
@@ -243,6 +248,10 @@ class ActionFactory(private val objectMapper: ObjectMapper) {
             "updateOrganization" -> objectMapper.readValue<UpdateOrganizationAction>(actionJson)
             "deleteOrganization" -> objectMapper.readValue<DeleteOrganizationAction>(actionJson)
             "linkIdentityProvider" -> objectMapper.readValue<LinkIdentityProviderToOrganizationAction>(actionJson)
+
+            "addWorkflow" -> objectMapper.readValue<AddWorkflowAction>(actionJson)
+            "updateWorkflow" -> objectMapper.readValue<UpdateWorkflowAction>(actionJson)
+            "deleteWorkflow" -> objectMapper.readValue<DeleteWorkflowAction>(actionJson)
 
             else -> throw ParseException(
                 "Unknown Change type: $actionName"

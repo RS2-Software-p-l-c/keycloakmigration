@@ -56,6 +56,7 @@ import de.klg71.keycloakmigration.keycloakapi.model.User
 import de.klg71.keycloakmigration.keycloakapi.model.UserFederation
 import de.klg71.keycloakmigration.keycloakapi.model.UserFederationMapper
 import de.klg71.keycloakmigration.keycloakapi.model.UserGroupListItem
+import de.klg71.keycloakmigration.keycloakapi.model.Workflow
 import feign.Headers
 import feign.Param
 import feign.RequestLine
@@ -782,4 +783,34 @@ interface KeycloakClient {
         @Param("groupId") groupId: String,
         @Param("userId") userId: String
     ): Response
+
+    // The workflow endpoints answer in YAML unless JSON is asked for explicitly.
+    @Headers("Accept: application/json")
+    @RequestLine("GET /admin/realms/{realm}/workflows?search={name}&exact=true&max={max}")
+    fun workflowsByName(
+        @Param("realm") realm: String,
+        @Param("name") name: String,
+        @Param("max") max: Int = 100
+    ): List<Workflow>
+
+    @Headers("Accept: application/json")
+    @RequestLine("GET /admin/realms/{realm}/workflows/{id}")
+    fun workflow(@Param("realm") realm: String, @Param("id") id: String): Workflow
+
+    /** The workflows a resource (for example a user, by id) is part-way through. */
+    @Headers("Accept: application/json")
+    @RequestLine("GET /admin/realms/{realm}/workflows/scheduled/{resourceId}")
+    fun workflowsScheduledFor(@Param("realm") realm: String, @Param("resourceId") resourceId: String): List<Workflow>
+
+    @Headers("Content-Type: application/json; charset=utf-8", "Accept: application/json")
+    @RequestLine("POST /admin/realms/{realm}/workflows")
+    fun createWorkflow(@Param("realm") realm: String, workflow: Workflow): Response
+
+    @Headers("Content-Type: application/json; charset=utf-8", "Accept: application/json")
+    @RequestLine("PUT /admin/realms/{realm}/workflows/{id}")
+    fun updateWorkflow(@Param("realm") realm: String, @Param("id") id: String, workflow: Workflow): Response
+
+    @Headers("Accept: application/json")
+    @RequestLine("DELETE /admin/realms/{realm}/workflows/{id}")
+    fun deleteWorkflow(@Param("realm") realm: String, @Param("id") id: String): Response
 }
