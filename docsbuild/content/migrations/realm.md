@@ -280,6 +280,28 @@ updates an attribute in the user profile for the realm
               - admin
 ```
 
+## deleteRealmProfileAttribute
+deletes an attribute from the user profile for the realm. Fails if the attribute does not exist.
+
+Values already stored on users are not touched. With the realm's unmanaged attribute policy disabled (the default),
+Keycloak hides them once the attribute is no longer declared; with it enabled, they show as unmanaged attributes.
+
+### Parameters
+- realm: String, optional
+- name: String, not optional
+
+### Example
+```yaml
+    id: delete-realm-profile-attribute
+    author: isaac.mercieca
+    changes:
+      - deleteRealmProfileAttribute:
+          name: country
+```
+
+### Undo
+Restores the user profile as it was, with the attribute at its original position.
+
 ## updateRealmProfileOrder
 reorders attributes in the user profile for the realm based on the provided list
 

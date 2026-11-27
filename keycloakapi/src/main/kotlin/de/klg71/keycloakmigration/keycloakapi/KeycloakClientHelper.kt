@@ -2,6 +2,7 @@
 
 package de.klg71.keycloakmigration.keycloakapi
 
+import com.fasterxml.jackson.databind.ObjectMapper
 import de.klg71.keycloakmigration.keycloakapi.model.AddOrganization
 import de.klg71.keycloakmigration.keycloakapi.model.Client
 import de.klg71.keycloakmigration.keycloakapi.model.ClientScope
@@ -12,6 +13,7 @@ import de.klg71.keycloakmigration.keycloakapi.model.OrganizationMember
 import de.klg71.keycloakmigration.keycloakapi.model.Role
 import de.klg71.keycloakmigration.keycloakapi.model.RoleListItem
 import de.klg71.keycloakmigration.keycloakapi.model.UpdateOrganization
+import de.klg71.keycloakmigration.keycloakapi.model.Workflow
 import feign.Response
 import java.nio.charset.StandardCharsets
 import java.util.UUID
@@ -340,4 +342,21 @@ fun KeycloakClient.userRoles(realm: String, user: UUID, expanded: Boolean = true
         userRealmRolesExpanded(realm, user)
     else
         userRealmRoles(realm, user)
+}
+
+/**
+ * The workflow with exactly this name, or null. Keycloak's exact search is used to narrow the
+ * request; the name is compared again here so the result never depends on how the server matches.
+ */
+fun KeycloakClient.workflowByName(name: String, realm: String): Workflow? =
+    workflowsByName(realm, name).firstOrNull { it.name == name }
+
+/**
+ * The message of an error response: Keycloak's `errorMessage` field when the body is JSON that has
+ * one, otherwise the raw body, otherwise the HTTP reason.
+ */
+fun Response.errorMessage(): String {
+    val text = body()?.asReader(StandardCharsets.UTF_8)?.use { it.readText() }.orEmpty()
+    val message = runCatching { ObjectMapper().readTree(text)?.get("errorMessage")?.asText() }.getOrNull()
+    return message?.takeIf { it.isNotBlank() } ?: text.ifBlank { reason() ?: "HTTP ${status()}" }
 }
